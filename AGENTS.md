@@ -17,6 +17,9 @@ ENV_AGENTS is the versioned home of my agent work environment: the `/bootstrap` 
 | Types | `uv run mypy` |
 | Agent layer contracts | `uv run python scripts/validate_agent_layer.py` |
 | Install into `~/.claude` (human only) | `uv run python scripts/install.py` (dry run) · `--apply` |
+| Metrics report | `uv run python scripts/metrics_report.py` |
+| Human active minutes in a window | `uv run python scripts/metrics_report.py --active 2026-10-16T10:00 2026-10-16T11:30` |
+| Coverage for the report | `uv run pytest --cov=scripts --cov=hooks --cov-report=json` |
 | Git metrics (read-only) | `uv run python scripts/git_metrics.py <repo>` |
 
 ## Workflow you must follow

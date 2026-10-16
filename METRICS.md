@@ -59,3 +59,15 @@ I track three headline numbers: **throughput**, **cycle time**, **change failure
 - Agent-written commits are not always marked, so I do not claim a number for "share of AI code" from git alone.
 
 If the honest result is 3x, I write 3x, and I write what would be needed to reach 10x (more parallelism, better specs, faster review).
+
+## How the numbers are collected (this repo)
+
+| Number | Source | Rule |
+|---|---|---|
+| `est_hours_old_way` | task file, at planning time | Written by the planner, confirmed by the human at approval, never edited after. Calibrated against `docs/baseline.md` |
+| `my_active_minutes` | `session-log/events.jsonl` | Sum of gaps between consecutive human events (`UserPromptSubmit`) in the task's start–end window, **each gap capped at 10 minutes**, plus review minutes timed by hand. Command: `metrics_report.py --active FROM TO`. Parallel tasks share the same human minutes, so the multiplier is conservative |
+| Events | `scripts/log_event.py` hook on `UserPromptSubmit`, `Stop`, `SubagentStop`, `PostToolUseFailure` | Only `{timestamp, session_id, event, branch}`. Never prompt text. The raw file stays local (gitignored) |
+| Deployment frequency | git | First-parent commits on `main` per week (each merged PR is one) |
+| Change failure | `tasks.csv` `rolled_back` | Share of agent tasks rolled back or hot-fixed within 7 days |
+| Defect escape | `tasks.csv` `type=escaped-defect` | A bug found after merge is logged as its own row with that type |
+| Coverage | `coverage.json` from `pytest --cov` | Critical paths are `scripts/` and `hooks/` |

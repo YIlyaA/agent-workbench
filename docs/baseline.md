@@ -42,3 +42,11 @@ Source: `scripts/git_metrics.py` run read-only on my main backend project (a Dja
 ## What to do with it
 
 This is the baseline for the next measurements: throughput per active day and per human hour, plus test share and fix share as quality guards. The 10x question is answered by the experiment, not by this table.
+
+## Task-level baseline in this repo (old way, timed)
+
+The production numbers above are git-level. For task-level multipliers, the first 2–3 small tasks here are done the old way (me with autocomplete only), timed, and logged in `session-log/tasks.csv` with `method=old`. Until then, `est_hours_old_way` is an estimate checked against these rows.
+
+| id | task | est_hours_old_way (before) | real minutes | ratio real/est |
+|---|---|---:|---:|---:|
+| | <TODO: first old-way task> | | | |
