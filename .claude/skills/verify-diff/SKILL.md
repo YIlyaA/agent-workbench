@@ -1,7 +1,7 @@
 ---
 name: verify-diff
 description: Independent review of a builder's branch by the verifier agent in a fresh context; records the verdict and finding count in the task file. Use when a task is ready-for-review.
-when-to-use: After implement-task produced a green branch, or before any PR in ENV_AGENTS.
+when-to-use: After implement-task produced a green branch, or before any PR in Agents Workbench.
 ---
 
 # Verify Diff Skill

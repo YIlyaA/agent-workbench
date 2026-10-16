@@ -1,4 +1,6 @@
-# Bootstrap plan: ENV_AGENTS
+# Bootstrap plan: Agents Workbench
+
+Historical record of the first `/bootstrap` run. It was written when the repo was the local folder `ENV_AGENTS`; that name below refers to the folder.
 
 Date: 2026-10-16. Status: **waiting for GATE 1 (`approved`)**. This plan does not authorize implementation.
 

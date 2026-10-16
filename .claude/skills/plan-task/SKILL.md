@@ -1,7 +1,7 @@
 ---
 name: plan-task
-description: Turn a goal for ENV_AGENTS into one or more task files in tasks/ with a frozen est_hours_old_way, then stop for approval. Use when the user states a goal, feature, fix or research question for this repo.
-when-to-use: Start of any change to scripts, skills, agents, docs or metrics in ENV_AGENTS.
+description: Turn a goal for Agents Workbench into one or more task files in tasks/ with a frozen est_hours_old_way, then stop for approval. Use when the user states a goal, feature, fix or research question for this repo.
+when-to-use: Start of any change to scripts, skills, agents, docs or metrics in Agents Workbench.
 ---
 
 # Plan Task Skill

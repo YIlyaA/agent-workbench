@@ -4,7 +4,7 @@ Operating instructions for any agent in this repository. This is the single sour
 
 ## Project
 
-ENV_AGENTS is the versioned home of my agent work environment: the `/bootstrap` skill, agent and task templates, guardrails and the velocity metrics. Public repo, MIT. Must work on macOS, Linux and Windows: runtime code is Python stdlib only, every command runs through `uv run python …`, no bash, jq, symlinks or `python3`. Use `pathlib`, `encoding="utf-8"` and never assume `/` separators. CI runs the checks on all three OSes. There is no deploy target; "deployment" means a PR merged to `main`.
+Agents Workbench is the versioned home of my agent work environment: the `/bootstrap` skill, agent and task templates, guardrails and the velocity metrics. Public repo, MIT. Must work on macOS, Linux and Windows: runtime code is Python stdlib only, every command runs through `uv run python …`, no bash, jq, symlinks or `python3`. Use `pathlib`, `encoding="utf-8"` and never assume `/` separators. CI runs the checks on all three OSes. There is no deploy target; "deployment" means a PR merged to `main`.
 
 ## Commands (each verified by running it)
 
@@ -42,7 +42,7 @@ L0 observe · L1 recommend · L2 approve-to-execute · L3 guardrailed auto. Prom
 | Scripts and tests | L2 |
 | Metrics data (`tasks.csv` rows, `est_hours_old_way`) | L1: propose, human confirms |
 | Guardrails (`.claude/settings.json`, `.claude/hooks/`, `hooks/`, `.pre-commit-config.yaml`, `.github/workflows/`) | L1: draft only, human applies |
-| `~/.claude/` and every repo outside ENV_AGENTS | L0: read only |
+| `~/.claude/` and every folder outside this repo | L0: read only |
 
 **Will not delegate** (human only): merging to `main`; changing guardrails; approving plans and `est_hours_old_way`.
 
@@ -78,7 +78,7 @@ Repo skills (in `.claude/skills/`) run the loop: `plan-task` → `implement-task
 
 ## Do not touch
 
-- `~/.claude/` (including the live `skills/bootstrap` symlink) and every repo outside ENV_AGENTS, including `AI_AGENTS_ANALYSE/`.
+- `~/.claude/` and every folder outside this repo. Install into `~/.claude/` only with `scripts/install.py`, run by the human.
 - `scripts/git_metrics.py`: copied unchanged from the reference design; changes need a task.
 - `est_hours_old_way` in a task file after `status: approved`.
 - `.env*`, `secrets/`.

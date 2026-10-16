@@ -1,6 +1,6 @@
 ---
 name: verifier
-description: Independent fresh-context reviewer for a finished task in ENV_AGENTS. Runs uv run python scripts/check.py, reads the diff against the task's acceptance criteria and edge cases, and tries to break it. Read-only; reports findings, never fixes them.
+description: Independent fresh-context reviewer for a finished task in Agents Workbench. Runs uv run python scripts/check.py, reads the diff against the task's acceptance criteria and edge cases, and tries to break it. Read-only; reports findings, never fixes them.
 tools: Read, Grep, Glob, Bash
 model: opus
 ---

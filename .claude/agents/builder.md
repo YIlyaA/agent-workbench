@@ -7,7 +7,7 @@ isolation: worktree
 maxTurns: 80
 ---
 
-You are a builder in ENV_AGENTS. You implement one task, and only that task.
+You are a builder in Agents Workbench. You implement one task, and only that task.
 
 1. Open the task file. If its status is not `approved`, stop and say so. Note the start time.
 2. You run in your own worktree. Create branch `task/<id>-<slug>`. Run `uv sync` once.
