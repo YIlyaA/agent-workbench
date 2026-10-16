@@ -14,19 +14,36 @@
       "Bash(git log *)",
       "Bash(git worktree list *)"
     ],
+    "ask": [
+      "Edit(./.claude/settings.json)",
+      "Edit(./.claude/hooks/**)",
+      "Edit(./hooks/**)",
+      "Edit(./scripts/log_event.py)",
+      "Edit(./.github/workflows/**)",
+      "Edit(~/.claude/**)",
+      "Bash(uv run python scripts/install.py --apply*)",
+      "Bash(gh pr merge *)"
+    ],
     "deny": [
       "Read(./.env)",
       "Read(./.env.*)",
       "Read(./secrets/**)",
-      "Edit(./.claude/settings.json)",
-      "Edit(./.claude/hooks/**)",
-      "Edit(./hooks/**)",
-      "Edit(./.github/workflows/**)",
-      "Edit(~/.claude/**)",
-      "Bash(uv run python scripts/install.py --apply*)",
       "Bash(git push origin main *)",
-      "Bash(git push origin master *)",
-      "Bash(gh pr merge *)"
+      "Bash(git push origin master *)"
+    ]
+  },
+  "hooks": {
+    "UserPromptSubmit": [
+      { "hooks": [{ "type": "command", "command": "uv", "args": ["run", "--no-project", "python", "${CLAUDE_PROJECT_DIR}/scripts/log_event.py"] }] }
+    ],
+    "Stop": [
+      { "hooks": [{ "type": "command", "command": "uv", "args": ["run", "--no-project", "python", "${CLAUDE_PROJECT_DIR}/scripts/log_event.py"] }] }
+    ],
+    "SubagentStop": [
+      { "hooks": [{ "type": "command", "command": "uv", "args": ["run", "--no-project", "python", "${CLAUDE_PROJECT_DIR}/scripts/log_event.py"] }] }
+    ],
+    "PostToolUseFailure": [
+      { "hooks": [{ "type": "command", "command": "uv", "args": ["run", "--no-project", "python", "${CLAUDE_PROJECT_DIR}/scripts/log_event.py"] }] }
     ]
   }
 }

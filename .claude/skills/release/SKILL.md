@@ -15,8 +15,8 @@ Close the loop so every merged task is measured. No log, no credit.
 ### Step 1: Open the PR
 Push the task branch (never `main`): `git push -u origin task/<id>-<slug>`. Then `gh pr create --base main --title "<id>: <title>" --body-file <tmp>`. The body has the goal, acceptance criteria checked off, the check output and the verifier verdict.
 
-### Step 2: Wait for the human merge
-Only the human merges. Ask them to review and merge, and to report their review minutes.
+### Step 2: Merge on request
+Ask the human to review the PR and report their review minutes. Merge only when they ask for it: `gh pr merge <n> --squash --delete-branch` (an `ask` rule, so they confirm in the permission prompt). Never merge with failing CI.
 
 ### Step 3: Log the task
 After the merge, propose one row for `session-log/tasks.csv`:
@@ -33,5 +33,5 @@ Run `uv run python scripts/metrics_report.py` and show the real output. Add one 
 PR URL, the confirmed CSV row, and the report excerpt.
 
 ## Guardrails
-- Never merge, never push to `main`, never force push.
+- Merge only on the human's request and only with green CI. Never push directly to `main`, never force push.
 - Never edit an existing `tasks.csv` row; corrections are a new note in the task file.

@@ -34,7 +34,8 @@ Goal → `planner` writes `tasks/T-xxx.md` (frozen `est_hours_old_way`) → huma
 ## Key decisions
 
 - [0001: stack and layout](docs/decisions/0001-stack-and-layout.md): versioned copy of the reference design; stdlib runtime, uv dev tools.
+- [0002: approve-to-execute](docs/decisions/0002-approve-to-execute.md): merges and guardrail changes run on the human's request, confirmed in the permission prompt.
 
 ## Current state (2026-10-16)
 
-Bootstrap Phase 2 (agent layer) with the cross-OS amendment (plan D9). Measurement (Phase 3) built on branch feat/measurement; event hooks are registered by the human in `.claude/settings.json`. Public GitHub remote not created yet. `~/.claude/skills/bootstrap` still points to the old reference folder until `scripts/install.py --apply` is run.
+Bootstrap Phases 0–3 done: agent layer, cross-OS support (plan D9) and measurement are merged and public at https://github.com/YIlyaA/agent-workbench, with CI on Linux, macOS and Windows. Event logging is live. Merges and guardrail changes are approve-to-execute (decision 0002). Next: Phase 4 readiness score, then T-001 as the first measured loop.
