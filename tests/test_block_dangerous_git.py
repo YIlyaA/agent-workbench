@@ -109,6 +109,10 @@ BLOCKED = [
     nl("cat > .git/hooks/pre-push <<'EOF'", "git push -f origin main", "EOF"),
     nl("cat >> .git/config <<'EOF'", "[alias]", "x = !git push -f origin main", "EOF"),
     nl("cat > ~/.gitconfig <<'EOF'", "[alias]", "x = !git push -f origin main", "EOF"),
+    # Inert commands with a redirect can still write an executable payload (e.g. into .git/hooks).
+    "echo 'git push -f origin main' > .git/hooks/post-commit",
+    "printf '%s' 'git push -f origin main' >> .git/hooks/pre-push && true",
+    "echo 'git push -f origin main' > notes.txt",  # acceptable false positive: redirects never get Exception B
     # Acceptable false positives of the strict design (the old hook blocked these too).
     'gh pr create --base main --body "merge to main after git push --force review"',
     'grep -rn "git reset --hard" docs/',

@@ -75,6 +75,8 @@ def _chained_ok(cmd: str) -> bool:
         for token in lex:
             if "(" in token or ")" in token:
                 return False
+            if set(token) <= set(PUNCTUATION) and set(token) & set("<>"):
+                return False  # a redirect can write a payload; redirects never get this exception
             if set(token) <= set(PUNCTUATION) and set(token) & SEPARATORS:
                 segments.append([])
             else:
