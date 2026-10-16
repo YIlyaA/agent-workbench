@@ -14,6 +14,7 @@ Constants: SESSION_GAP_MIN = 120, LEAD_IN_MIN = 30, SIZE_BUCKETS = (100, 500), D
 import argparse
 import datetime
 import json
+import os
 import re
 import statistics
 import subprocess
@@ -32,9 +33,16 @@ LEAD_IN_MIN = 30
 SIZE_BUCKETS = (100, 500)
 DEFAULT_BEFORE = "2026-08-01"
 SEP, REC = "\x1f", "\x1e"
-SYNC = re.compile(r"^Merge (remote-tracking )?branch '(origin/)?(main|master)'.* into ")
+# main merged into a feature branch (" into "), or a `git pull` merge on main (" of <remote>")
+SYNC = re.compile(r"^Merge (remote-tracking )?branch '(origin/)?(main|master)'(.* into | of )")
 BRANCH = (re.compile(r"^Merge branch '([^']+)'"), re.compile(r"^Merge pull request #\d+ from [^/\s]+/(\S+)"))
 TYPES = ("feat", "fix", "other")  # tie-break order
+ACTUAL_KEYS = (
+    "id merged n_commits n_parents nested_merges binary_files authors sessions low_min high_min mid_min".split()
+)
+BLIND_KEYS = "id branch type n_commits files code_lines test_share subjects".split()
+ALL_REFS = ("--exclude=refs/stash", "--all")  # a stash is a merge-shaped commit, not a task
+LOG_FIELDS = f"%H{SEP}%P{SEP}%at{SEP}%an{SEP}%s"
 
 
 class GitError(RuntimeError):
@@ -133,32 +141,22 @@ def parse_log(text: str) -> list[dict[str, Any]]:
     for rec in text.split(REC)[1:]:
         head, _, stats = rec.partition("\n")
         sha, parents, at, author, subject = head.split(SEP, 4)
-        out.append(
-            {
-                "sha": sha,
-                "parents": len(parents.split()),
-                "at": int(at),
-                "author": author,
-                "subject": subject,
-                "stats": stats,
-            }
-        )
+        out.append(dict(sha=sha, parents=len(parents.split()), at=int(at), author=author, subject=subject, stats=stats))
     return out[::-1]  # git prints newest first
 
 
-def list_merges(repo: str, before: datetime.date) -> tuple[list[tuple[str, int, int, str, str]], int]:
+def list_merges(repo: str, before: datetime.date) -> tuple[list[tuple[str, int, str, str]], int]:
+    """Kept merges parents-first (topological, so an inner merge precedes the outer one) and the sync count."""
     rows, sync = [], 0
-    for line in run_git(repo, "log", "--all", "--merges", f"--format=%H{SEP}%P{SEP}%at{SEP}%aI{SEP}%s").splitlines()[
-        ::-1
-    ]:
-        sha, parents, at, iso, subject = line.split(SEP, 4)
+    fmt = f"--format=%H{SEP}%P{SEP}%aI{SEP}%s"
+    for line in run_git(repo, "log", *ALL_REFS, "--merges", "--topo-order", "--reverse", fmt).splitlines():
+        sha, parents, iso, subject = line.split(SEP, 3)
         if datetime.date.fromisoformat(iso[:10]) >= before:
             continue
         if SYNC.match(subject):
             sync += 1
         else:
-            rows.append((sha, len(parents.split()), int(at), subject, iso[:10]))
-    rows.sort(key=lambda r: r[2])  # stable: ties keep oldest-first git order
+            rows.append((sha, len(parents.split()), subject, iso[:10]))
     return rows, sync
 
 
@@ -191,28 +189,37 @@ def summarize(tasks: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def mine(repo: str, before: datetime.date) -> dict[str, Any]:
-    if run_git(repo, "rev-parse", "--is-inside-work-tree").strip() != "true":
+    top = run_git(repo, "rev-parse", "--is-inside-work-tree", "--show-toplevel").split("\n")
+    if top[0] != "true":
         raise GitError("not a git work tree")
+    if not os.path.samefile(top[1], repo):
+        raise GitError("not a repository root (give the top-level directory)")
     merges, sync = list_merges(repo, before)
-    plain = run_git(repo, "log", "--all", "--no-merges", f"--format=%H{SEP}%aI").splitlines()
+    plain = run_git(repo, "log", *ALL_REFS, "--no-merges", f"--format=%H{SEP}%aI").splitlines()
     direct = {sha for sha, iso in (ln.split(SEP) for ln in plain) if datetime.date.fromisoformat(iso[:10]) < before}
     claimed: set[str] = set()
     tasks: list[dict[str, Any]] = []
     skipped = {"sync": sync, "empty": 0, "error": 0}
-    for sha, n_parents, _, subject, day in merges:
+    for sha, n_parents, subject, day in merges:
         try:
-            rng = parse_log(
-                run_git(repo, "log", "--numstat", f"--format={REC}%H{SEP}%P{SEP}%at{SEP}%an{SEP}%s", f"{sha}^1..{sha}")
-            )
+            rng = parse_log(run_git(repo, "log", "--numstat", f"--format={REC}{LOG_FIELDS}", f"{sha}^1..{sha}"))
         except GitError:
             skipped["error"] += 1
             continue
-        commits = [c for c in rng if c["parents"] == 1 and c["sha"] not in claimed]
+        commits = [c for c in rng if c["parents"] <= 1 and c["sha"] not in claimed]
         if not commits:
             skipped["empty"] += 1
             continue
         claimed.update(c["sha"] for c in commits)
-        tasks.append(build_task(sha, n_parents, subject, commits, sum(c["parents"] > 1 for c in rng) - 1))
+        tasks.append(
+            build_task(
+                sha,
+                n_parents,
+                subject,
+                commits,
+                sum(c["parents"] > 1 and c["sha"] != sha and not SYNC.match(c["subject"]) for c in rng),
+            )
+        )
         tasks[-1]["merged"] = day
     return {"tasks": tasks, "direct_commits": len(direct - claimed), "skipped": skipped}
 
@@ -234,9 +241,7 @@ def main(argv: list[str] | None = None) -> int:
 
 def _iso_date(s: str) -> datetime.date:
     try:
-        if len(s) != 10:
-            raise ValueError(s)
-        return datetime.date.fromisoformat(s)
+        return datetime.datetime.strptime(s, "%Y-%m-%d").date()
     except ValueError:
         raise argparse.ArgumentTypeError(f"invalid date {s!r}, want YYYY-MM-DD") from None
 
@@ -249,25 +254,16 @@ def report(args: argparse.Namespace, res: dict[str, Any]) -> int:
         "generated": datetime.date.today().isoformat(), "groups": summarize(tasks),
         "constants": {"SESSION_GAP_MIN": SESSION_GAP_MIN, "LEAD_IN_MIN": LEAD_IN_MIN, "SIZE_BUCKETS": SIZE_BUCKETS},
     }  # fmt: skip
-    keys = (
-        "id",
-        "merged",
-        "n_commits",
-        "n_parents",
-        "nested_merges",
-        "authors",
-        "sessions",
-        "low_min",
-        "high_min",
-        "mid_min",
-    )
-    actuals = [{k: t[k] for k in keys} for t in tasks]
-    bkeys = ("id", "branch", "type", "n_commits", "files", "code_lines", "test_share", "subjects")
-    blind = sorted(({k: t[k] for k in bkeys} for t in tasks), key=lambda b: b["id"])
+    actuals = [{k: t[k] for k in ACTUAL_KEYS} for t in tasks]
+    blind = sorted(({k: t[k] for k in BLIND_KEYS} for t in tasks), key=lambda b: b["id"])
     dump = {"repo": Path(args.repo).resolve().name, "summary": summary, "actuals": actuals}
     for path, obj in ((args.json_out, dump), (args.blind, blind)):
-        if path:
-            Path(path).write_text(json.dumps(obj, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+        try:
+            if path:
+                Path(path).write_text(json.dumps(obj, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+        except OSError as e:
+            print(f"error: cannot write {Path(path).name}: {e.strerror}", file=sys.stderr)
+            return 2
     print(f"tasks={len(tasks)} direct={res['direct_commits']} zero_low={summary['zero_low_tasks']}")
     print(f"{'group':<9}{'n':>4}{'low':>8}{'high':>8}{'mid':>8}")
     for g, v in summary["groups"].items():

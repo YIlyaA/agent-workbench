@@ -69,19 +69,18 @@ def run(fx: Fx, *extra: str) -> tuple[dict, list]:
 # ---- pure functions ----
 
 
-def test_sessions_cross_midnight() -> None:
-    r = hb.time_range([0, 50 * 60])  # 23:30 -> 00:20
-    assert (r.sessions, r.low, r.high) == (1, 50, 80)
-
-
-def test_identical_timestamps() -> None:
-    r = hb.time_range([100, 100])
-    assert (r.sessions, r.low, r.high) == (1, 0, 30)
-
-
-def test_session_gap_boundary() -> None:
-    r = hb.time_range([0, 120 * 60, 241 * 60])
-    assert (r.sessions, r.low, r.high, r.mid) == (2, 120, 180, 150)
+@pytest.mark.parametrize(
+    ("stamps", "want"),  # (sessions, low, high, mid)
+    [
+        ([0, 50 * 60], (1, 50, 80, 65)),  # 23:30 -> 00:20, crosses midnight
+        ([100, 100], (1, 0, 30, 15)),  # identical timestamps
+        ([0, 120 * 60, 241 * 60], (2, 120, 180, 150)),  # gap of exactly 120 stays, 121 splits
+    ],
+    ids=["midnight", "same", "gap"],
+)
+def test_time_range(stamps: list[int], want: tuple[int, ...]) -> None:
+    r = hb.time_range(stamps)
+    assert (r.sessions, r.low, r.high, r.mid) == want
 
 
 @pytest.mark.parametrize(
@@ -99,11 +98,18 @@ def test_rename_path(raw: str, want: str) -> None:
     assert hb.resolve_path(raw) == want
 
 
-def test_type_majority() -> None:
-    assert hb.task_type(["feat: a", "feat: b", "fix: c"]) == "feat"
-    assert hb.task_type(["feat: a", "fix: b"]) == "feat"
-    assert hb.task_type(["fix: a", "wip"]) == "fix"
-    assert hb.task_type(["fixed typo"]) == "other"
+@pytest.mark.parametrize(
+    ("subjects", "want"),
+    [
+        (["feat: a", "feat: b", "fix: c"], "feat"),
+        (["feat: a", "fix: b"], "feat"),
+        (["fix: a", "wip"], "fix"),
+        (["fixed typo"], "other"),
+    ],
+    ids=["major", "tie", "tie2", "typo"],
+)
+def test_type_majority(subjects: list[str], want: str) -> None:
+    assert hb.task_type(subjects) == want
 
 
 @pytest.mark.parametrize(("n", "want"), [(99, "<100"), (100, "100-500"), (500, "100-500"), (501, ">500")])
@@ -128,10 +134,49 @@ def test_no_merges(tmp_path: Path) -> None:
 
 
 def test_not_a_repo(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    for p in (tmp_path, tmp_path / "missing"):
+    (tmp_path / "w").mkdir()
+    fx = base(tmp_path / "w")
+    sub = fx.repo / "sub"
+    sub.mkdir()
+    plain = tmp_path / "plain"
+    plain.mkdir()
+    for p in (plain, tmp_path / "missing", sub):
         assert hb.main([str(p)]) == 2
     err = capsys.readouterr().err
-    assert len(err.strip().splitlines()) == 2 and "Traceback" not in err
+    assert len(err.strip().splitlines()) == 3 and "Traceback" not in err and "repository root" in err
+
+
+def test_unwritable_output(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    fx = base(tmp_path)
+    for flag in ("--json", "--blind"):
+        assert hb.main([str(fx.repo), flag, str(tmp_path / "nodir" / "o.json")]) == 2
+    assert "Traceback" not in capsys.readouterr().err
+
+
+def test_stash_is_not_a_task(tmp_path: Path) -> None:
+    fx = base(tmp_path)
+    (fx.repo / "app.py").write_text("changed\n", encoding="utf-8", newline="\n")
+    fx.git("stash", "push", "-q", date=D.format(2, "09:00"))
+    s = run(fx)[0]["summary"]
+    assert (s["tasks"], s["direct_commits"]) == (0, 1)
+
+
+def test_root_commit_in_range(tmp_path: Path) -> None:
+    fx = base(tmp_path)
+    fx.git("switch", "-q", "--orphan", "o")
+    fx.commit(D.format(2, "09:00"), "feat: root", {"r.py": 2})
+    fx.git("switch", "-q", "main")
+    fx.git(
+        "merge",
+        "--no-ff",
+        "-q",
+        "--allow-unrelated-histories",
+        "-m",
+        "Merge branch 'o'",
+        "o",
+        date=D.format(3, "09:00"),
+    )
+    assert [t["n_commits"] for t in run(fx)[0]["actuals"]] == [1]
 
 
 def test_bad_cutoff(tmp_path: Path) -> None:
@@ -160,13 +205,14 @@ def test_octopus(tmp_path: Path) -> None:
     assert len(t) == 1 and (t[0]["n_commits"], t[0]["n_parents"]) == (2, 3)
 
 
-def test_nested_merge_no_double_count(tmp_path: Path) -> None:
+@pytest.mark.parametrize("inner_day", [3, 9], ids=["early", "late"])  # late: inner merge dated after the outer
+def test_nested_merge_no_double_count(tmp_path: Path, inner_day: int) -> None:
     fx = base(tmp_path)
     fx.git("switch", "-q", "-c", "a")
     fx.commit(D.format(2, "09:00"), "feat: a1", {"a.py": 2})
     fx.branch("b", [(D.format(2, "10:00"), "feat: b1", {"b.py": 2})], base="a")
     fx.git("switch", "-q", "a")
-    fx.merge(D.format(3, "09:00"), "b", msg="Merge branch 'b' into a")
+    fx.merge(D.format(inner_day, "09:00"), "b", msg="Merge branch 'b' into a")
     fx.git("switch", "-q", "main")
     fx.merge(D.format(4, "09:00"), "a")
     t = run(fx)[0]["actuals"]
@@ -184,7 +230,17 @@ def test_sync_merge_skipped(tmp_path: Path) -> None:
     fx.git("switch", "-q", "main")
     fx.merge(D.format(5, "09:00"), "feat-x")
     data, _ = run(fx)
-    assert data["summary"]["skipped"]["sync"] == 1 and [t["n_commits"] for t in data["actuals"]] == [1]
+    assert data["summary"]["skipped"]["sync"] == 1
+    assert [(t["n_commits"], t["nested_merges"]) for t in data["actuals"]] == [(1, 0)]
+
+
+def test_pull_merge_is_sync(tmp_path: Path) -> None:
+    fx = base(tmp_path)
+    fx.branch("b", [(D.format(2, "09:00"), "feat: b", {"b.py": 1})], D.format(3, "09:00"))
+    fx.branch("c", [(D.format(4, "09:00"), "feat: c", {"c.py": 1})])
+    fx.merge(D.format(5, "09:00"), "c", msg="Merge branch 'main' of example.test:x/y")
+    s = run(fx)[0]["summary"]
+    assert (s["tasks"], s["skipped"]["sync"]) == (1, 1)
 
 
 def test_single_commit_task(tmp_path: Path) -> None:
@@ -206,8 +262,8 @@ def test_other_authors_counted(tmp_path: Path) -> None:
 def test_binary_numstat(tmp_path: Path) -> None:
     fx = base(tmp_path)
     fx.branch("b", [(D.format(2, "09:00"), "feat: bin", {"d.bin": b"\x00\x01\x02\xff"})], D.format(3, "09:00"))
-    t = run(fx)[1][0]
-    assert (t["files"], t["code_lines"]) == (1, 0)
+    data, blind = run(fx)
+    assert (blind[0]["files"], blind[0]["code_lines"], data["actuals"][0]["binary_files"]) == (1, 0, 1)
     assert hb.parse_stats("-\t-\td.bin\n3\t1\ta.py\n").binary == {"d.bin"}
 
 
@@ -237,15 +293,9 @@ def test_cutoff_boundary(tmp_path: Path) -> None:
     fx = base(tmp_path)
     fx.branch("b1", [(D.format(2, "09:00"), "feat: 1", {"1.py": 1})], "2026-07-31T23:59:59+03:00")
     fx.branch("b2", [(D.format(2, "09:00"), "feat: 2", {"2.py": 1})], "2026-08-01T00:00:00+03:00")
+    fx.branch("b3", [("2026-07-20T09:00:00+00:00", "feat: 3", {"3.py": 1})], "2026-08-02T09:00:00+00:00")
     s = run(fx)[0]["summary"]
-    assert (s["tasks"], s["direct_commits"]) == (1, 2)
-
-
-def test_merge_after_cutoff(tmp_path: Path) -> None:
-    fx = base(tmp_path)
-    fx.branch("b", [("2026-07-20T09:00:00+00:00", "feat: b", {"b.py": 1})], "2026-08-02T09:00:00+00:00")
-    s = run(fx)[0]["summary"]
-    assert (s["tasks"], s["direct_commits"]) == (0, 2)
+    assert (s["tasks"], s["direct_commits"]) == (1, 3)  # init, b2 and b3 commits are unclaimed
 
 
 def test_mixed_offsets(tmp_path: Path) -> None:
@@ -262,9 +312,10 @@ def test_blind_sheet_is_blind(tmp_path: Path) -> None:
         fx.branch(name, [(D.format(2 + i, "09:00"), f"feat: {name}", {f"{name}.py": 3})], D.format(7 + i, "09:00"))
     _, blind = run(fx)
     text = (fx.root / "blind.json").read_text("utf-8")
-    bad_key = re.compile(r"(^|_)(date|merged|time|min|session|author|ts)s?($|_)")  # whole tokens, see report
-    assert not re.search(r"\d{4}-\d{2}-\d{2}", text)
-    assert not any(bad_key.search(k) for e in blind for k in e)
+    keys = {"id", "branch", "type", "n_commits", "files", "code_lines", "test_share", "subjects"}
+    values = json.dumps([{k: v for k, v in e.items() if k != "id"} for e in blind])  # a sha prefix may be digits
+    assert all(set(e) == keys for e in blind) and not re.search(r"\d{4}-\d{2}-\d{2}", text)
+    assert not re.search(r"\d{9,11}", values)  # unix seconds
     assert [e["id"] for e in blind] == sorted(e["id"] for e in blind) and len(blind) == 3
 
 
@@ -278,12 +329,17 @@ def test_unicode_and_spaces(tmp_path: Path, capsys: pytest.CaptureFixture[str]) 
     assert out and "добавить" not in out and "фича" not in out
 
 
-def test_deterministic(tmp_path: Path) -> None:
+def test_deterministic_and_read_only(tmp_path: Path) -> None:
     fx = base(tmp_path)
     fx.branch("b", [(D.format(2, "09:00"), "feat: b", {"b.py": 3})], D.format(3, "09:00"))
+
+    def snap() -> tuple[str, ...]:
+        return tuple(fx.git(*a) for a in (("status", "--porcelain"), ("rev-parse", "HEAD"), ("for-each-ref",)))
+
+    before = snap()
     a, b = run(fx)[0], run(fx)[0]
     a["summary"].pop("generated"), b["summary"].pop("generated")
-    assert a == b and a["repo"] == "repo x"
+    assert a == b and a["repo"] == "repo x" and snap() == before
 
 
 def test_partial_failure(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -301,15 +357,3 @@ def test_partial_failure(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Non
     monkeypatch.setattr(hb, "run_git", flaky)
     s = run(fx)[0]["summary"]
     assert (s["tasks"], s["skipped"]["error"]) == (1, 1)
-
-
-def test_read_only(tmp_path: Path) -> None:
-    fx = base(tmp_path)
-    fx.branch("b", [(D.format(2, "09:00"), "feat: b", {"b.py": 3})], D.format(3, "09:00"))
-
-    def snap() -> tuple[str, ...]:
-        return tuple(fx.git(*a) for a in (("status", "--porcelain"), ("rev-parse", "HEAD"), ("for-each-ref",)))
-
-    before = snap()
-    run(fx)
-    assert snap() == before

@@ -30,7 +30,7 @@ A related claim is easier to verify: "I can run N agent tasks in parallel and st
 
 1. Take my git history before I used agents seriously (the date is stated in `docs/baseline.md`).
 2. Compute commits, active days, code lines (generated, vendor and data files excluded), test share and fix share per month with `scripts/git_metrics.py`.
-3. For a task-level baseline, take 5 to 10 past tasks of a similar size and use the time I really spent (from the git log and my notes), not an optimistic estimate.
+3. For a task-level baseline, run `scripts/historic_baseline.py` on the pre-agent history: each merge is a task, sessions split at gaps of more than 120 minutes, and the time is a range that adds 30 minutes of lead-in per session. Planner estimates are calibrated blind against it (method and limits in `docs/baseline.md`).
 4. Write the baseline down before the experiment starts, so I cannot move the goalposts.
 
 ## Weekly tracking (rate of improvement)

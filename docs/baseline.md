@@ -43,10 +43,37 @@ Source: `scripts/git_metrics.py` run read-only on my main backend project (a Dja
 
 This is the baseline for the next measurements: throughput per active day and per human hour, plus test share and fix share as quality guards. The 10x question is answered by the experiment, not by this table.
 
-## Task-level baseline in this repo (old way, timed)
+## Task-level baseline from git history
 
-The production numbers above are git-level. For task-level multipliers, the first 2–3 small tasks here are done the old way (me with autocomplete only), timed, and logged in `session-log/tasks.csv` with `method=old`. Until then, `est_hours_old_way` is an estimate checked against these rows.
+The production numbers above are git-level. The task-level baseline is mined from pre-agent history by `scripts/historic_baseline.py` (read-only, stdlib only), so nobody has to time old-way tasks by hand.
 
-| id | task | est_hours_old_way (before) | real minutes | ratio real/est |
-|---|---|---:|---:|---:|
-| | <TODO: first old-way task> | | | |
+**Method.**
+- Each merge commit before the cutoff is one task. Merges of main into a feature branch and `git pull` merges on main are skipped. Stashes are ignored.
+- A task is the non-merge commits the merge brought in. A commit belongs to at most one task. Commits no merge claimed are only counted (`direct_commits`).
+- Commit author times are sorted and split into sessions wherever the gap is more than `SESSION_GAP_MIN = 120` minutes.
+- `low_min` is the sum of the session lengths (first to last commit). `high_min` is `low_min + LEAD_IN_MIN * sessions` with `LEAD_IN_MIN = 30`, for the work before the first commit of each session. `mid_min` is the average of the two.
+- A single-commit task has low 0 and high 30. These tasks are counted as `zero_low_tasks`.
+- Size buckets use `SIZE_BUCKETS = (100, 500)` code lines: `<100`, `100-500`, `>500`.
+
+**Calibration.** The script writes a blind sheet (no times, dates or authors). A fresh planner estimates `est_hours_old_way` for each task from the blind sheet alone. The ratio `actual_mid_min / (estimate_hours * 60)` then gives a correction factor for planner estimates. Pre-registered before the run: if fewer than 15 tasks remain after skips, or more than half have `low = 0`, the factor is reported as indicative only.
+
+**Limits.**
+- Commit time is not hours worked. The result is a range, not a point.
+- Work done before the first commit or after the last one, and uncommitted work, is invisible. The lead-in only partly covers it.
+- Breaks shorter than 120 minutes count as work. Parallel tasks on different branches overlap, so their times are not additive.
+- Autocomplete already existed then, so this is the old way with autocomplete only.
+- One person commits under several author names. All authors are kept and counted.
+- Commit subjects may contain dates or numbers. The blind sheet still carries subjects, so a planner could read a date from one.
+- Merges that are not real tasks (a long-lived branch, a release merge) are included. Check the largest tasks by hand.
+
+Run it outside this repo and keep the output out of it: the files contain private commit subjects.
+
+| group | n | median low_min | median high_min | median mid_min |
+|---|---:|---:|---:|---:|
+| all | <TODO> | <TODO> | <TODO> | <TODO> |
+| feat / fix / other | <TODO> | <TODO> | <TODO> | <TODO> |
+| `<100` / `100-500` / `>500` lines | <TODO> | <TODO> | <TODO> | <TODO> |
+
+| calibration | tasks estimated | median actual_mid / estimate | p25 to p75 | share inside [low, high] | date |
+|---|---:|---:|---|---:|---|
+| first run | <TODO> | <TODO> | <TODO> | <TODO> | <TODO> |
