@@ -13,3 +13,4 @@ __pycache__/
 
 # Public repo: raw event logs stay local (session ids, branch names, timing)
 session-log/events.jsonl
+coverage.json

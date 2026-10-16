@@ -11,10 +11,9 @@ skills/bootstrap/        → installs the environment into any project (/bootstr
 .claude/agents/          → planner, builder, verifier (roles of the loop)
 .claude/skills/          → plan-task, implement-task, verify-diff, release (the loop's steps here)
 hooks/                   → global guardrail hook (block_dangerous_git.py), installed by scripts/install.py
-.claude/hooks/           → project event logger (Phase 3)
 tasks/                   → one file per task; _template.md is the contract
 session-log/             → tasks.csv (one row per task), events.jsonl (hook events), exported sessions
-scripts/                 → validate_agent_layer.py, git_metrics.py, metrics_report.py, check.py, install.py
+scripts/                 → check.py, install.py, validate_agent_layer.py, log_event.py (hook), metrics_report.py, git_metrics.py
 docs/                    → plan, baseline, decisions, readiness score, release evidence
 ```
 
@@ -38,4 +37,4 @@ Goal → `planner` writes `tasks/T-xxx.md` (frozen `est_hours_old_way`) → huma
 
 ## Current state (2026-10-16)
 
-Bootstrap Phase 2 (agent layer) with the cross-OS amendment (plan D9). Measurement (Phase 3) not built yet. Public GitHub remote not created yet. `~/.claude/skills/bootstrap` still points to the old reference folder until `scripts/install.py --apply` is run.
+Bootstrap Phase 2 (agent layer) with the cross-OS amendment (plan D9). Measurement (Phase 3) built on branch feat/measurement; event hooks are registered by the human in `.claude/settings.json`. Public GitHub remote not created yet. `~/.claude/skills/bootstrap` still points to the old reference folder until `scripts/install.py --apply` is run.
