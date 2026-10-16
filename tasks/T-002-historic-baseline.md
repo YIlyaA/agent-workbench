@@ -17,7 +17,7 @@ parallel_ok: true
 ## Goal
 Replace the hand-timed "old way" tasks in `docs/baseline.md` with a task-level baseline built from real pre-agent git history, and make a blind check of `est_hours_old_way` possible. Traces to `METRICS.md` "Baseline method" step 3 and the rule "my own baseline, not an imaginary average engineer". Direction approved by the human on 2026-10-16.
 
-Source data for the later run (not used by the builder): `YASTUNING` (Django), pre-agent means before 2026-08-01. It has 38 merge commits before the cutoff, 326 non-merge commits and 8 branches. One person commits under three author names. The median gap between consecutive commits on the same day is 32 min (n=186).
+Source data for the later run (not used by the builder): the author's main pre-agent Django project, pre-agent means before 2026-08-01. It has 38 merge commits before the cutoff, 326 non-merge commits and 8 branches. One person commits under three author names. The median gap between consecutive commits on the same day is 32 min (n=186).
 
 ## Scope (paths the builder may touch)
 - `scripts/historic_baseline.py` (new)
@@ -25,7 +25,7 @@ Source data for the later run (not used by the builder): `YASTUNING` (Django), p
 - `docs/baseline.md` (replace the section "Task-level baseline in this repo (old way, timed)")
 - `METRICS.md` (rewrite "Baseline method" step 3 only, one paragraph)
 
-Nothing else. `scripts/git_metrics.py` must not change (AGENTS.md "Do not touch"). Do not run the script on YASTUNING or any other real repo. That happens in the human-gated calibration step below.
+Nothing else. `scripts/git_metrics.py` must not change (AGENTS.md "Do not touch"). Do not run the script on the source repo or any other real repo. That happens in the human-gated calibration step below.
 
 ## Specification
 
@@ -142,7 +142,7 @@ Renamed paths: numstat prints `old => new` or `pre/{a => b}/post`. Resolve each 
 - If the import of `git_metrics` fights mypy or ruff in a way a one-line ignore cannot solve, stop and ask. Do not copy the regexes.
 
 ## Calibration (human-gated, after merge; NOT builder scope)
-1. The human asks the orchestrator to run `uv run python scripts/historic_baseline.py <YASTUNING> --before 2026-08-01 --json <scratch>/actuals.json --blind <scratch>/blind.json`. The output stays outside this repo. It contains private commit subjects and must not be committed.
+1. The human asks the orchestrator to run `uv run python scripts/historic_baseline.py <source-repo> --before 2026-08-01 --json <scratch>/actuals.json --blind <scratch>/blind.json`. The output stays outside this repo. It contains private commit subjects and must not be committed.
 2. A **fresh planner** with no access to `actuals.json`, git history or this task's log estimates `est_hours_old_way` for every task, using only `blind.json` and `docs/baseline.md` (with the summary table still `<TODO>`, so it cannot anchor on the medians).
 3. The orchestrator computes `ratio = actual_mid_min / (estimate_hours * 60)` per task. It reports the median, p25 to p75, n, and also the share of tasks whose estimate falls inside `[low, high]`.
 4. The human records the summary table and the calibration factor in `docs/baseline.md` and adds a sentence to METRICS.md ("planner estimates are multiplied by F"). That is a separate docs task. Metrics data is L1: the agent proposes, the human confirms.
