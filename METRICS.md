@@ -71,3 +71,10 @@ If the honest result is 3x, I write 3x, and I write what would be needed to reac
 | Change failure | `tasks.csv` `rolled_back` | Share of agent tasks rolled back or hot-fixed within 7 days |
 | Defect escape | `tasks.csv` `type=escaped-defect` | A bug found after merge is logged as its own row with that type |
 | Coverage | `coverage.json` from `pytest --cov` | Critical paths are `scripts/` and `hooks/` |
+
+## Headline numbers (decided 2026-10-16, after the T-002 calibration)
+
+The T-002 calibration showed that planner estimates are about 10 times the time visible in commit history (see `docs/baseline.md`). So the multiplier `est_hours_old_way * 60 / my_active_minutes` is **not** a headline number. It depends on how good the estimate is, and that estimate is not validated. The headline numbers are:
+1. **Git-level output per active day**, pre-agent against agent period, computed the same way for both (`scripts/git_metrics.py`).
+2. **Tasks per active hour, week over week** (`scripts/metrics_report.py`), compared with this repo's own earlier weeks, so no estimate is involved.
+3. **Quality guards:** first-pass green, review findings per task, change failure, defect escape. Speed only counts while these hold.

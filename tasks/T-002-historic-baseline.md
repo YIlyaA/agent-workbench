@@ -1,6 +1,6 @@
 ---
 id: T-002
-status: ready-for-review         # draft | approved | in-progress | ready-for-review | done | rejected
+status: done         # draft | approved | in-progress | ready-for-review | done | rejected
 risk: low                # read-only analysis of another repo's git metadata; nothing is written there
 autonomy: L2             # L0 observe | L1 recommend | L2 approve-to-execute | L3 guardrailed auto
 type: metrics            # feature | bugfix | docs | skill | metrics | research
@@ -163,3 +163,12 @@ Renamed paths: numstat prints `old => new` or `pre/{a => b}/post`. Resolve each 
 - Verifier verdict and findings:
 - Human review (minutes, notes):
 - Verification, final (2026-10-16): verifier round 1 **FAIL** (8 findings) and round 2 **FAIL** (6 findings: sync pattern missed `origin/main` merges and pulls on feature branches, plus 1 minor and 3 nits), all fixed in attempt 3 (`61a331c`). An orchestrator probe of the sync pattern with 14 subjects not in the tests found 0 problems. **Verdict: PASS WITH NITS.** Open nit: the diff is 713 lines against the 600 limit; the human decides whether to waive it. `review_findings`: 14. First pass not green.
+- Human decisions (2026-10-16): **waived** the size overrun (713 lines against the 600 limit); merged PR #7; approved the calibration run.
+- Calibration run: read-only on the source repo (HEAD unchanged, 0 dirty files before and after). Outputs stayed in the local scratchpad. Results, aggregates only, are in `docs/baseline.md`.
+
+## Retro (2026-10-16)
+1. **What worked:** the verifier failed the work twice with real findings: a stash counted as a task, two common merge types counted as tasks, and lost commits. Without it, the baseline would have been built on fake tasks.
+2. **What did not:** the planner's size estimate was off by about 2 times (350 limit, 713 actual), and in attempt 2 the builder went past the raised limit without stopping.
+3. **Finding:** the calibration produced a negative result. Estimates run about 10 times the time visible in commits. So the estimate-based multiplier, including T-001's 4.4 times, is not trustworthy as proof of speed.
+4. **Change:** the headline metrics are now git-level per-day output and the tasks-per-hour trend (METRICS.md). The estimate stays a planning aid.
+5. **Proposed rule:** the builder must stop at the diff limit even after it is raised. The planner's line estimates for test-heavy tasks should assume about 8 lines per edge-case row with a real fixture.

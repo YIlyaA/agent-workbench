@@ -71,10 +71,33 @@ Run it outside this repo and keep the output out of it: the files contain privat
 
 | group | n | median low_min | median high_min | median mid_min |
 |---|---:|---:|---:|---:|
-| all | <TODO> | <TODO> | <TODO> | <TODO> |
-| feat / fix / other | <TODO> | <TODO> | <TODO> | <TODO> |
-| `<100` / `100-500` / `>500` lines | <TODO> | <TODO> | <TODO> | <TODO> |
+| all | 32 | 0 | 30 | 15 |
+| feat / fix / other | 19 / 8 / 5 | 0 / 0 / 0 | 60 / 30 / 30 | 30 / 15 / 15 |
+| `<100` / `100-500` / `>500` lines | 11 / 4 / 17 | 0 / 0 / 16 | 30 / 45 / 90 | 15 / 22.5 / 45 |
 
 | calibration | tasks estimated | median actual_mid / estimate | p25 to p75 | share inside [low, high] | date |
 |---|---:|---:|---|---:|---|
-| first run | <TODO> | <TODO> | <TODO> | <TODO> | <TODO> |
+| first run, all tasks | 32 | 0.10 | 0.05 to 0.46 | 8 / 32 | 2026-10-16 |
+| first run, multi-session tasks only (low > 0) | 10 | 0.08 | 0.07 to 0.16 | 1 / 10 | 2026-10-16 |
+
+### First run: result and what it means (2026-10-16)
+
+Source: the author's main pre-agent Django project, cutoff 2026-08-01. 32 tasks (merged branches), 6 sync merges skipped, 182 commits made directly on the main branch (not in any task).
+
+**Status: indicative only.** 22 of 32 tasks have `low = 0` (one commit, or all commits at the same time). That is more than half, which is the pre-registered rule for "indicative only".
+
+**Calibration:** a fresh planner estimated each task from the blind sheet, without seeing any times. The estimates are about **10 times** the time shown by commit timestamps (median actual/estimate 0.10). On the 10 multi-session tasks, which have the most timing signal, the factor is about 12 times (0.08), and only 1 of 10 estimates falls inside [low, high].
+
+The data cannot say which side is wrong:
+1. **The estimates are too high.** Then every `est_hours_old_way`, and the multiplier built on it (T-001: 4.4 times), is inflated by up to about 10 times.
+2. **Commit timestamps miss most of the work.** Work before the first commit, squashed commits, and very large changes that are probably generated or bulk (one task has about 39k lines) all hide time.
+
+Both are likely partly true.
+
+**Decision:** the estimate-based multiplier is not used as a headline number. The headline numbers are:
+- the git-level per-active-day comparison above, which uses the same method before and after and no estimates;
+- the week-over-week trend of tasks per active hour from `tasks.csv`.
+
+Quality guards apply to both. `est_hours_old_way` is still recorded per task, as a planning aid. A real task-level baseline would need timed old-way tasks, which the human chose not to do.
+
+The raw per-task files stay outside the repo because they contain private commit subjects.

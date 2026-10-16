@@ -269,7 +269,8 @@ def report(tasks: list[Task], events: list[dict], repo: Path) -> str:
         "",
         "## Human time and leverage",
         f"active minutes per task (median): {_fmt(s['active_minutes_median'])}",
-        f"multiplier est_hours_old_way*60/active (median): {_fmt(s['multiplier_median'], 'x')}"
+        "estimate-based multiplier (planning aid, NOT validated: estimates ~10x commit time, see METRICS.md)"
+        f" median: {_fmt(s['multiplier_median'], 'x')}"
         + (f"  range {s['multiplier_range'][0]:.1f}x-{s['multiplier_range'][1]:.1f}x" if s["multiplier_range"] else ""),
         f"human active minutes in all logged events: {_fmt(active_minutes(human_times(events)))}",
         "",
