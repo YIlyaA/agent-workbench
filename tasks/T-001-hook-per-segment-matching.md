@@ -146,4 +146,5 @@ Attempt 1, a parser that allows whatever it does not understand, failed verifica
   - 100 KB inputs take under 0.01 s.
   - Known gaps, the same as the old hook: git aliases (`-c alias.x=...`), quote-split arguments (`-"f"`, `ma''in`), and files written with the Write tool. The hook checks Bash command text; it is not a sandbox.
   - **Final verdict: PASS.** `review_findings`: 8 (attempt 1) + 2 nits + 3 (probe) = 13. First pass not green.
+- Attempt 2d: Windows CI fix (long test ids). The BLOCKED, ALLOWED and FUZZ parametrizations now use `ids=short_id` (length plus first 60 chars), since pytest stores the node id in PYTEST_CURRENT_TEST and Windows caps env vars at 32,767 chars; the 100 KB fuzz string and the 7-level nested bash command had produced huge ids. Longest collected id line is now 245 chars. Hook code unchanged. check.py: 187 passed, ALL CHECKS PASSED.
 - Human review (minutes, notes):

@@ -10,6 +10,7 @@ import pytest
 from hooks import block_dangerous_git
 from hooks.block_dangerous_git import blocked_reason
 
+ID_CHARS = 60
 HOOK = Path(__file__).resolve().parent.parent / "hooks" / "block_dangerous_git.py"
 
 
@@ -149,13 +150,18 @@ ALLOWED = [
 ]
 
 
-@pytest.mark.parametrize("cmd", BLOCKED)
+def short_id(cmd: str) -> str:
+    """Short test id: pytest puts the id in an env var, and Windows caps env vars at 32,767 chars."""
+    return f"len{len(cmd)}-{cmd[:ID_CHARS]!r}"
+
+
+@pytest.mark.parametrize("cmd", BLOCKED, ids=short_id)
 def test_blocks_dangerous(cmd: str) -> None:
     assert blocked_reason(cmd) is not None
     assert blocked_reason(cmd) == blocked_reason(cmd)
 
 
-@pytest.mark.parametrize("cmd", ALLOWED)
+@pytest.mark.parametrize("cmd", ALLOWED, ids=short_id)
 def test_allows_safe(cmd: str) -> None:
     assert blocked_reason(cmd) is None
 
@@ -189,7 +195,7 @@ FUZZ = ['"', "'", "<<", "<<-", "<<'", "$(", "`", "\\", "$(`", "git push <<", "ba
 FUZZ += ["a" * 100000, "$(" * 5000, "(" * 5000, "`" * 5001]
 
 
-@pytest.mark.parametrize("cmd", FUZZ)
+@pytest.mark.parametrize("cmd", FUZZ, ids=short_id)
 def test_never_raises(cmd: str) -> None:
     assert blocked_reason(cmd) == blocked_reason(cmd)
 
