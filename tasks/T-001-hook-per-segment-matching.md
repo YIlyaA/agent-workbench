@@ -127,5 +127,9 @@ Keep `blocked_reason(command: str) -> str | None` as the public function; tests 
 - Tests-first: before the hook change 22 new cases failed for the expected reasons (both real false positives and the "new" cases).
 - Checks run (command and real output): `uv run python scripts/check.py`
   ruff check: All checks passed! / ruff format: 52 files already formatted / mypy: Success: no issues found in 15 source files / pytest: 137 passed in 1.51s / agent layer: OK / ALL CHECKS PASSED
-- Verifier verdict and findings:
+- Verifier verdict and findings (2026-10-16, fresh context + security review): **FAIL**, 8 findings (1 blocker, 4 major, 3 minor). First pass not green.
+  - Blocker: a heredoc delimiter written `<<\EOF`, `<<E"O"F` or `<<"E"OF` is parsed wrong, so nothing after it is checked (`hooks/block_dangerous_git.py:39`, `:83`).
+  - Major: `$(...)#` is treated as a comment (`:125`); wrappers not on the list (`stdbuf`, `caffeinate`, `find -exec`, `sudo -u git`) hide git (`:33`, `:216-229`); interpreter flags are missed (`bash -c --`, `eval --`, `cmd /C`, `pwsh -NonInteractive -Command`, `fish --command`); code piped into a shell (`echo … | bash`) or run by `python3 -c` / `node -e` is not checked.
+  - Minor: `$'...'` quoting and `<<` inside `(( ))` confuse the scanner; the old-regex fallback takes 71 s on 200 KB of input; the diff is 306 lines against a limit of 250.
+  - Root cause: when the parser meets something it does not model, it allows the command instead of falling back to the old regex.
 - Human review (minutes, notes):
