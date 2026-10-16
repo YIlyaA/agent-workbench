@@ -1,6 +1,6 @@
 ---
 id: T-001
-status: approved          # draft | approved | in-progress | ready-for-review | done | rejected
+status: ready-for-review  # draft | approved | in-progress | ready-for-review | done | rejected
 risk: medium             # low | medium | high  (medium and high: human approves each risky command)
 autonomy: L1             # guardrail code: builder implements after approval, human applies settings change and merges
 type: bugfix             # feature | bugfix | docs | skill | metrics | research
@@ -34,17 +34,19 @@ Traces to the guardrails objective in `AGENTS.md`: the hook must block real dang
 
 Nothing else. If another path is needed, stop and ask.
 
-## Approach (recommended, builder may refine)
-Keep `blocked_reason(command: str) -> str | None` as the public function; tests and `main()` already use it. Stdlib only (`re`, `shlex`, `json`, `sys`, `os.path`/`pathlib` for basename), Python 3.10+ typing, no OS-specific code.
+## Approach (REVISED 2026-10-16 after verifier FAIL; human chose "invert the design")
 
-1. **Pre-pass.** Join backslash-newline continuations. Remove heredoc bodies: for each `<<` / `<<-` with delimiter `WORD`, `'WORD'` or `"WORD"`, drop the lines up to the terminator line (leading tabs allowed for `<<-`). For an unquoted delimiter, keep any `$(...)` and backtick bodies from the dropped lines as extra segments, because the shell runs them.
-2. **Tokenize** with `shlex.shlex(text, posix=True, punctuation_chars=True)`, `whitespace_split=True`, `commenters="#"`. Split segments on the operator tokens `&&`, `||`, `;`, `|`, `&`, `(`, `)`, and on newlines (split lines before tokenizing, so newlines are separators).
-3. **Command substitution.** Extract `$(...)` and backtick bodies from unquoted and double-quoted text and evaluate each as its own command. Single-quoted text is never executed, so it is skipped.
-4. **Per segment:** skip leading `NAME=value` assignments and wrappers (`env`, `command`, `exec`, `nohup`, `time`, `sudo`, `xargs`). If argv[0] is a shell interpreter (`bash`, `sh`, `zsh`, `dash`, `ksh`, `fish`, `pwsh`, `powershell`, `cmd`, `eval`) and has a `-c` style flag (`-c`, `-lc`, `-ic`, `/c`, `-Command`, `-command`; for `eval` all args), evaluate the command string recursively (depth limit, for example 5; past the limit fall back to the legacy regex). If the basename of argv[0] is `git` or `git.exe`: skip git global options (`-C <path>`, `-c <k=v>`, `--git-dir=...`, `--work-tree=...`, `--no-pager`, `-P`, `--bare`, ...), take the subcommand and apply the rules to its own args only.
-5. **Rules on tokens, not on raw text:**
-   - `push`: any of `--force`, `--force-with-lease[=...]`, `--force-if-includes`, `-f`, a short-flag cluster containing `f` (for example `-fu`), or a refspec starting with `+` → "force push". Any refspec whose destination (the part after the last `:`, or the whole refspec if no `:`) is `main`, `master`, `refs/heads/main` or `refs/heads/master` → "push to main/master".
-   - `reset` with `--hard`; `clean` with a short-flag cluster containing `f` or `--force`; `branch` with `-D` (or `--delete --force`); `checkout`/`restore` with `.` as the pathspec (optionally after `--`). Same labels as today.
-6. **Fail-safe fallback.** If `shlex` raises `ValueError` (unterminated quote, etc.) on a segment, run the legacy `DANGEROUS` regexes on that segment only. If anything else raises inside `blocked_reason`, run the legacy regexes on the whole command. `main()` keeps returning 0 for malformed JSON or a non-string command.
+Attempt 1, a parser that allows whatever it does not understand, failed verification: 8 findings and regressions against the old hook (see Log). Revised rule: **the old regex stays the judge. A command the old patterns flag is allowed only when one of two narrow, provable exceptions applies. Anything unusual stays blocked.**
+
+1. `legacy_reason(cmd)`: the old patterns, unchanged in what they block. Extend only so that git global options before the subcommand are also caught: `git -C <dir> push --force`, `git -c k=v push -f`, `git --git-dir=x push origin main`. More blocking is allowed; less is not.
+2. `blocked_reason(cmd)`:
+   - `legacy_reason` is None → None.
+   - Exception A or B applies → None.
+   - Otherwise → the legacy reason.
+3. **Exception A, a quoted heredoc written to a file.** The whole command must exactly match one line `cat` or `tee`, optionally `-a`, a redirect or path made only of `[\w./-]` characters, and `<<'WORD'` or `<<"WORD"` (a quoted literal `\w+` delimiter, so the shell does not expand the body), then the body, then a line that is exactly `WORD`, and then **nothing after it** (trailing whitespace only). The first line, without the heredoc operator, must be clean under `legacy_reason`. An unquoted delimiter (`<<EOF`, `<<\EOF`, `<<E"O"F`) is never an exception.
+4. **Exception B, chained commands where the match crosses commands.** Tokenize with `shlex.shlex(cmd, posix=True, punctuation_chars="();<>|&\n")`, so an unquoted newline separates commands. Any tokenizer error means no exception. There is also no exception if the raw command contains `$`, a backtick, `<<`, `<(`, `>(`, a backslash before a newline, or a token `(` or `)`. Split segments on `&&`, `||`, `;`, `|`, `&` and newline tokens. Every segment's first token must be in `SAFE_FIRST = {"git", "gh", "echo", "printf", "cd", "ls", "pwd", "true"}`. For each `git` segment, run `legacy_reason` on its tokens joined by spaces; any hit means no exception. Segments that start with anything else in `SAFE_FIRST` are inert text. A pipe into any command not in `SAFE_FIRST` (`| bash`, `| sh`) fails the first-token rule, so it stays blocked.
+5. **Input cap:** if `len(cmd) > MAX_LEN` (100_000), return a block reason when `git` appears in it, otherwise None. This stops the 71 s regex stall.
+6. Malformed hook JSON still exits 0. Stdlib only. Target diff is **at most 150 lines**.
 
 ## Acceptance criteria
 - [ ] Both real false positives from the Goal pass (exit 0).
@@ -105,6 +107,8 @@ Keep `blocked_reason(command: str) -> str | None` as the public function; tests 
 | Concurrent | many hook processes at once | No shared state, no files read or written; no interaction | n/a (by design, note in review) |
 | Permissions | hook runs as a plain user | Reads only stdin; needs no file or network access | n/a |
 
+> **Revised after attempt 2 (2026-10-16):** the inverted design blocks some rows above that the table lists as Allowed: grep for a dangerous string, `git commit -m "...git push -f..."`, a `<<-` heredoc, a trailing `# git push -f` comment, an unterminated heredoc, and any command with a redirect. The human accepted these as false positives when choosing "invert the design". `tests/test_block_dangerous_git.py` is the source of truth for every row.
+
 ## Test plan
 - Extend `BLOCKED` and `ALLOWED` lists in `tests/test_block_dangerous_git.py` with every row above. Use `"\n".join([...])` for multi-line commands so the file stays cross-platform.
 - Add `test_large_input`, `test_internal_error_falls_back`, and a small no-raise fuzz test.
@@ -122,7 +126,25 @@ Keep `blocked_reason(command: str) -> str | None` as the public function; tests 
 - Revenue / Risk / Cost: no revenue impact. Risk is the main concern: a parser can miss a dangerous form that the old regex caught. The fallbacks and the "no existing BLOCKED case changes" criterion cover this. Cost: one builder session.
 
 ## Log (filled in by the builder and verifier)
-- Start / end:
-- Checks run (command and real output):
-- Verifier verdict and findings:
+- Start / end: 2026-10-16 13:47 / 14:06 local (includes a pause from 13:51 while the human reviewed a rejected write)
+- Diff size: 306 lines changed across the two files (hook +228 net, tests +79), over the 250 limit; flagged to the human, no fail-safe cases dropped. Split proposal: (1) per-segment + heredoc + quoting core, (2) interpreter/wrapper/substitution recursion.
+- Tests-first: before the hook change 22 new cases failed for the expected reasons (both real false positives and the "new" cases).
+- Checks run (command and real output): `uv run python scripts/check.py`
+  ruff check: All checks passed! / ruff format: 52 files already formatted / mypy: Success: no issues found in 15 source files / pytest: 137 passed in 1.51s / agent layer: OK / ALL CHECKS PASSED
+- Verifier verdict and findings (2026-10-16, fresh context + security review): **FAIL**, 8 findings (1 blocker, 4 major, 3 minor). First pass not green.
+  - Blocker: a heredoc delimiter written `<<\EOF`, `<<E"O"F` or `<<"E"OF` is parsed wrong, so nothing after it is checked (`hooks/block_dangerous_git.py:39`, `:83`).
+  - Major: `$(...)#` is treated as a comment (`:125`); wrappers not on the list (`stdbuf`, `caffeinate`, `find -exec`, `sudo -u git`) hide git (`:33`, `:216-229`); interpreter flags are missed (`bash -c --`, `eval --`, `cmd /C`, `pwsh -NonInteractive -Command`, `fish --command`); code piped into a shell (`echo … | bash`) or run by `python3 -c` / `node -e` is not checked.
+  - Minor: `$'...'` quoting and `<<` inside `(( ))` confuse the scanner; the old-regex fallback takes 71 s on 200 KB of input; the diff is 306 lines against a limit of 250.
+  - Root cause: when the parser meets something it does not model, it allows the command instead of falling back to the old regex.
+- Attempt 2 (revised approach: old regex judges, exceptions A and B), 2026-10-16 14:14 to 14:21 local. Every verifier regression command is now a BLOCKED test; the two real false positives and the multi-line commit-then-push-then-PR chain are ALLOWED tests. Rows that went back to BLOCKED (acceptable false positives, marked in the tests): grep of a dangerous string, `git commit -m "...git push -f..."`, unquoted `<<-` heredoc, trailing `# git push -f` comment, unterminated heredoc. Extra change: the regexes are split into head and tail searched per line, because the single `.*` form took 18 s on 100 KB with many `git push` words (quadratic); now 0.04 s. `uv run python scripts/check.py` tail: ruff check: All checks passed! / ruff format: 52 files already formatted / mypy: Success: no issues found in 15 source files / pytest: 174 passed in 0.73s / agent layer: OK / ALL CHECKS PASSED
+- Attempt 2b, 2026-10-16 14:25 to 14:29 local: fixed two orchestrator-found regressions, tests first (7 new cases failed, then passed). gh segments are now judged like git (only echo, printf, cd, ls, pwd, true are inert); Exception A refuses any first line containing `.git`. check.py tail: ruff check: All checks passed! / ruff format: 52 files already formatted / mypy: Success: no issues found in 15 source files / pytest: 184 passed in 0.76s / agent layer: OK / ALL CHECKS PASSED
+- Attempt 2c, 2026-10-16: Exception B now returns False when any token is a redirect operator (made only of punctuation chars and containing `<` or `>`), because an inert `echo`/`printf` redirected into `.git/hooks` writes an executable payload. Three new BLOCKED tests (failed first, then passed). check.py tail: ruff check: All checks passed! / ruff format: 52 files already formatted / mypy: Success: no issues found in 15 source files / pytest: 187 passed in 0.76s / agent layer: OK / ALL CHECKS PASSED
+- Verification of attempt 2 (2026-10-16):
+  - Fresh verifier: **PASS WITH NITS**, 2 nits (edge-case table out of date, now fixed above; diff 229 lines in scope, under 250). It could not run its bypass probing because a safety classifier stopped it.
+  - Orchestrator probe of Exceptions A and B, calling `blocked_reason` directly on 13 attack forms: found 3 regressions (`gh alias set --shell`, `gh extension exec`, and writes into `.git/` through a heredoc or a redirect). Fixed in 2b and 2c, and re-probed: all blocked.
+  - Old hook on `main` against new hook at `b004110`, on every test command: none of the old BLOCKED cases is allowed. Exactly 7 commands go from blocked to allowed, all intended: the 2 real false positives plus 3 variants, a harmless `echo`, and a heredoc ending in `\r` after which bash runs nothing.
+  - 100 KB inputs take under 0.01 s.
+  - Known gaps, the same as the old hook: git aliases (`-c alias.x=...`), quote-split arguments (`-"f"`, `ma''in`), and files written with the Write tool. The hook checks Bash command text; it is not a sandbox.
+  - **Final verdict: PASS.** `review_findings`: 8 (attempt 1) + 2 nits + 3 (probe) = 13. First pass not green.
+- Attempt 2d: Windows CI fix (long test ids). The BLOCKED, ALLOWED and FUZZ parametrizations now use `ids=short_id` (length plus first 60 chars), since pytest stores the node id in PYTEST_CURRENT_TEST and Windows caps env vars at 32,767 chars; the 100 KB fuzz string and the 7-level nested bash command had produced huge ids. Longest collected id line is now 245 chars. Hook code unchanged. check.py: 187 passed, ALL CHECKS PASSED.
 - Human review (minutes, notes):
