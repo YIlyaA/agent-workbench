@@ -1,0 +1,32 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(uv sync *)",
+      "Bash(uv run python scripts/check.py *)",
+      "Bash(uv run python scripts/validate_agent_layer.py *)",
+      "Bash(uv run python scripts/git_metrics.py *)",
+      "Bash(uv run python scripts/metrics_report.py *)",
+      "Bash(uv run pytest *)",
+      "Bash(uv run ruff *)",
+      "Bash(uv run mypy *)",
+      "Bash(git status *)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(git worktree list *)"
+    ],
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(./secrets/**)",
+      "Edit(./.claude/settings.json)",
+      "Edit(./.claude/hooks/**)",
+      "Edit(./hooks/**)",
+      "Edit(./.github/workflows/**)",
+      "Edit(~/.claude/**)",
+      "Bash(uv run python scripts/install.py --apply*)",
+      "Bash(git push origin main *)",
+      "Bash(git push origin master *)",
+      "Bash(gh pr merge *)"
+    ]
+  }
+}
