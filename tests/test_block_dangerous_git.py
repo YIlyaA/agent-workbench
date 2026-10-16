@@ -66,6 +66,47 @@ BLOCKED = [
     "(cd x && git push -f)",
     'git push -f "oops',
     nested_bash(7, "git push -f"),
+    # Verifier findings from attempt 1: things a parser did not understand must stay blocked.
+    nl("cat > notes.txt <<\\EOF", "hello", "EOF", "git reset --hard"),
+    nl('cat > notes.txt <<E"O"F', "hello", "EOF", "git reset --hard"),
+    nl('cat > notes.txt <<"E"OF', "hello", "EOF", "git reset --hard"),
+    nl("cat > notes.txt <<\\EOF", "hello", "EOF", "git push -f"),
+    nl("cat > notes.txt <<'EOF'", "hello", "EOF", "git push -f"),
+    "echo $(true)#; git push -f",
+    "x=$(pwd)#; git push -f origin x",
+    "echo $(( 1 ))#; git push -f",
+    "stdbuf -o0 git push -f",
+    "caffeinate git push -f",
+    "builtin command git push -f",
+    "find . -name git -o -exec git push -f \\;",
+    'env -S "git push --force"',
+    "sudo -u git git push -f",
+    "coproc git push -f",
+    "ssh host git push --force",
+    "docker exec c git push --force",
+    "bash -c -- 'git push --force'",
+    'eval -- "git push --force"',
+    'cmd /C "git push --force"',
+    "cmd.exe /C git push --force",
+    'pwsh -NonInteractive -Command "git push --force"',
+    'powershell -ExecutionPolicy Bypass -Command "git push --force"',
+    'fish --command "git push --force"',
+    'echo "git push --force" | bash',
+    "echo git push -f | sh",
+    "python3 -c \"import subprocess; subprocess.run('git push --force', shell=True)\"",
+    "node -e \"require('child_process').execSync('git push --force')\"",
+    nl("cat <<EOF |", "git push -f", "EOF", "bash"),
+    "echo $'\\'' ; git push -f # '",
+    nl("(( a = 1 <<EOF ))", "git push -f"),
+    "echo x &>/dev/null; git push -f",
+    "echo a ;>f git push -f",
+    # Acceptable false positives of the strict design (the old hook blocked these too).
+    'grep -rn "git reset --hard" docs/',
+    'git commit -m "never git push -f to main"',
+    nl("cat <<-EOF", "\tgit push -f origin main", "\tEOF"),
+    "git status # git push -f",
+    nl("cat <<EOF", "git push -f"),
+    'gh pr create --body "$(cat f)" && git push -f',
 ]
 ALLOWED = [
     "git push origin feature/x",
@@ -79,18 +120,16 @@ ALLOWED = [
     "git status",
     "echo 'git' && ls -f",
     "",
-    "git push -q -u origin docs/rename-agents-workbench && gh pr create --base main --title x",
-    nl("cat > f <<'EOF'", '{"allow": ["Bash(git push origin main *)"]}', "EOF"),
+    # The two real false positives of 2026-10-16.
+    'git push -q -u origin docs/rename-agents-workbench && gh pr create --base main --title "x" --body "y"',
+    nl("cat > f.json <<'EOF'", '{"allow": ["Bash(git push origin main *)"]}', "EOF"),
+    nl("cat > f.json <<'EOF'", '{"allow": ["Bash(git push origin main *)"]}', "EOF", ""),
+    nl('git commit -qam "msg', "", 'Co-Authored-By: x" && git push -q -u origin feat/x && gh pr create --base main'),
     'echo "git push -f"',
     'gh pr create --base main --body "merge to main after git push --force review"',
-    'grep -rn "git reset --hard" docs/',
-    'git commit -m "never git push -f to main"',
-    nl("cat <<-EOF", "\tgit push -f origin main", "\tEOF"),
     "git push origin main-fix",
-    "git status # git push -f",
     "   \n\t  ",
     'echo "hello',
-    nl("cat <<EOF", "git push -f"),
 ]
 
 
@@ -106,18 +145,28 @@ def test_allows_safe(cmd: str) -> None:
 
 
 def test_large_input() -> None:
-    cmd = "echo a && " * 20000 + "git push -f"
-    start = time.monotonic()
-    assert blocked_reason(cmd) == "force push"
-    assert time.monotonic() - start < 1.0
+    for cmd in ["echo a && " * 20000 + "git push -f", "git push -f " * 20000, "git -C " * 30000, "a" * 200_000]:
+        start = time.monotonic()
+        assert (blocked_reason(cmd) is None) == ("git" not in cmd)
+        assert time.monotonic() - start < 2.0
 
 
-def test_internal_error_falls_back(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_slow_input_below_cap() -> None:
+    for cmd in ["git push " * 11000, "git -C -C " * 9000 + "push", "git push -f " * 8000 + "x" * 100]:
+        assert len(cmd) <= block_dangerous_git.MAX_LEN
+        start = time.monotonic()
+        blocked_reason(cmd)
+        assert time.monotonic() - start < 2.0
+
+
+def test_internal_error_never_opens(monkeypatch: pytest.MonkeyPatch) -> None:
     def boom(*_a: object, **_k: object) -> None:
         raise RuntimeError("boom")
 
     monkeypatch.setattr(block_dangerous_git.shlex, "shlex", boom)
     assert blocked_reason("git push -f") == "force push"
+    # Without the tokenizer the chained-command exception cannot apply, so the legacy block stands.
+    assert blocked_reason("git push -q -u origin x && gh pr create --base main") == "push to main/master"
 
 
 FUZZ = ['"', "'", "<<", "<<-", "<<'", "$(", "`", "\\", "$(`", "git push <<", "bash -c", "git", "git -C"]
