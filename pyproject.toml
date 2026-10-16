@@ -1,0 +1,32 @@
+[project]
+name = "env-agents"
+version = "0.1.0"
+description = "Agent work environment: skills, agent templates, guardrails and velocity metrics."
+requires-python = ">=3.12"
+dependencies = []  # runtime is stdlib only; scripts must run with plain python3
+
+[dependency-groups]
+dev = ["ruff", "mypy", "pytest", "pytest-cov"]
+
+[tool.uv]
+package = false
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+
+[tool.ruff.lint.per-file-ignores]
+# Copied from the reference design (decision 0001); ruff-formatted only, AST identical to the original.
+"scripts/git_metrics.py" = ["E401", "I001", "E501", "B007", "UP"]
+
+[tool.mypy]
+python_version = "3.12"
+files = ["scripts", "tests", "hooks"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

@@ -1,0 +1,15 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.env
+.env.*
+.claude/worktrees/
+.claude/settings.local.json
+.DS_Store
+
+# Public repo: raw event logs stay local (session ids, branch names, timing)
+session-log/events.jsonl
