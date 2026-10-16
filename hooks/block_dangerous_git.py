@@ -36,7 +36,8 @@ GIT_OPTIONS = re.compile(
     r"|--?[A-Za-z][\w-]*(?:=\S+)?))+)(?=\s+[A-Za-z])"
 )
 HEREDOC_FILE = re.compile(r"(?:cat|tee)(?:[ \t]+(?:>>?|[\w./-]+))*[ \t]+<<(['\"])(\w+)\1[ \t]*")
-SAFE_FIRST = {"git", "gh", "echo", "printf", "cd", "ls", "pwd", "true"}
+INERT_FIRST = {"echo", "printf", "cd", "ls", "pwd", "true"}  # only print or change directory
+JUDGED_FIRST = {"git", "gh"}  # gh can run arbitrary commands (aliases, extensions): judge it like git
 MAX_LEN = 100_000  # longer commands are not inspected: blocked if they mention git
 PUNCTUATION = "();<>|&\n"
 SEPARATORS = set("&|;\n")
@@ -59,7 +60,8 @@ def _heredoc_to_file_ok(cmd: str) -> bool:
     match = HEREDOC_FILE.fullmatch(lines[0])
     if not match or len(lines) < 2 or lines[-1] != match[2] or match[2] in lines[1:-1]:
         return False
-    return legacy_reason(lines[0]) is None
+    # A write into .git (hooks, config) or .gitconfig is code git runs later.
+    return ".git" not in lines[0] and legacy_reason(lines[0]) is None
 
 
 def _chained_ok(cmd: str) -> bool:
@@ -80,7 +82,9 @@ def _chained_ok(cmd: str) -> bool:
     except Exception:  # noqa: BLE001 - any tokenizer problem means no exception
         return False
     for segment in segments:
-        if segment and (segment[0] not in SAFE_FIRST or (segment[0] == "git" and legacy_reason(" ".join(segment)))):
+        if not segment or segment[0] in INERT_FIRST:
+            continue
+        if segment[0] not in JUDGED_FIRST or legacy_reason(" ".join(segment)):
             return False
     return True
 

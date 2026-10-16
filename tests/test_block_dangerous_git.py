@@ -100,7 +100,17 @@ BLOCKED = [
     nl("(( a = 1 <<EOF ))", "git push -f"),
     "echo x &>/dev/null; git push -f",
     "echo a ;>f git push -f",
+    # gh can run arbitrary commands (aliases, extensions), so gh segments are judged like git.
+    "gh alias set --shell x 'git push -f origin main' && gh x",
+    "gh alias set --shell x 'git push -f origin main'; gh x",
+    "gh extension exec x 'git push -f origin main'",
+    # A quoted heredoc written into .git installs a hook or config that git runs later.
+    nl("tee .git/hooks/post-commit <<'EOF'", "#!/bin/sh", "git push -f origin main", "EOF"),
+    nl("cat > .git/hooks/pre-push <<'EOF'", "git push -f origin main", "EOF"),
+    nl("cat >> .git/config <<'EOF'", "[alias]", "x = !git push -f origin main", "EOF"),
+    nl("cat > ~/.gitconfig <<'EOF'", "[alias]", "x = !git push -f origin main", "EOF"),
     # Acceptable false positives of the strict design (the old hook blocked these too).
+    'gh pr create --base main --body "merge to main after git push --force review"',
     'grep -rn "git reset --hard" docs/',
     'git commit -m "never git push -f to main"',
     nl("cat <<-EOF", "\tgit push -f origin main", "\tEOF"),
@@ -126,7 +136,9 @@ ALLOWED = [
     nl("cat > f.json <<'EOF'", '{"allow": ["Bash(git push origin main *)"]}', "EOF", ""),
     nl('git commit -qam "msg', "", 'Co-Authored-By: x" && git push -q -u origin feat/x && gh pr create --base main'),
     'echo "git push -f"',
-    'gh pr create --base main --body "merge to main after git push --force review"',
+    "git push -q -u origin feat/x && gh pr create --base main --title t --body b",
+    "echo 'git push -f origin main'",  # harmless print
+    nl("cat > f <<'EOF'", "git push -f origin main", "EOF") + "\r",  # bash runs nothing after the closing word
     "git push origin main-fix",
     "   \n\t  ",
     'echo "hello',
