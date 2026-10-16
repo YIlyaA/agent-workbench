@@ -1,4 +1,4 @@
-# ENV_AGENTS
+# Agents Workbench
 
 Agent environment setup for any project, on any OS: the `/bootstrap` skill, agent roles, guardrails and the metrics that show whether it makes me faster.
 

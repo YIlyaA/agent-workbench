@@ -5,7 +5,7 @@
 - Value stream: Risk
 
 ## decision_summary
-ENV_AGENTS is a git repo holding a copy of the reference design (`AI_AGENTS_ANALYSE/work-environment-repo`). Runtime scripts use the Python stdlib only; `uv` manages dev tools (ruff, mypy, pytest) and `pre-commit` runs them.
+Agents Workbench (local folder `ENV_AGENTS`) is a git repo holding a copy of the reference design (`AI_AGENTS_ANALYSE/work-environment-repo`). Runtime scripts use the Python stdlib only; `uv` manages dev tools (ruff, mypy, pytest) and `pre-commit` runs them.
 
 ## justification
 - The global `/bootstrap` skill pointed into a folder with no git history: a bad edit could not be reverted and changes could not be measured. A versioned copy fixes both. Copy rather than move, because agents must not write outside this repo.
