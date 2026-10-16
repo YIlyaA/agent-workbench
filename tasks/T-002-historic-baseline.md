@@ -162,3 +162,4 @@ Renamed paths: numstat prints `old => new` or `pre/{a => b}/post`. Resolve each 
 - Checks run (command and real output): `uv run python scripts/check.py` after attempt 3 -> ruff check OK, ruff format OK, mypy OK (17 files), pytest 242 passed, agent layer OK, ALL CHECKS PASSED.
 - Verifier verdict and findings:
 - Human review (minutes, notes):
+- Verification, final (2026-10-16): verifier round 1 **FAIL** (8 findings) and round 2 **FAIL** (6 findings: sync pattern missed `origin/main` merges and pulls on feature branches, plus 1 minor and 3 nits), all fixed in attempt 3 (`61a331c`). An orchestrator probe of the sync pattern with 14 subjects not in the tests found 0 problems. **Verdict: PASS WITH NITS.** Open nit: the diff is 713 lines against the 600 limit; the human decides whether to waive it. `review_findings`: 14. First pass not green.
