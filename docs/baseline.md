@@ -48,7 +48,8 @@ This is the baseline for the next measurements: throughput per active day and pe
 The production numbers above are git-level. The task-level baseline is mined from pre-agent history by `scripts/historic_baseline.py` (read-only, stdlib only), so nobody has to time old-way tasks by hand.
 
 **Method.**
-- Each merge commit before the cutoff is one task. Merges of main into a feature branch and `git pull` merges on main are skipped. Stashes are ignored.
+- Each merge commit before the cutoff is one task. Sync merges are skipped: main merged into a feature branch, `git pull` merges, and `remote-tracking branch 'origin/main'` merges. Stashes are ignored.
+- Merges are processed in topological order (parents first), not by date, because author dates can be rewritten and an inner merge must claim its commits before the outer one. A branch merged separately into two branches that are not ancestors of each other goes to the first merge in that order. No commit is counted twice.
 - A task is the non-merge commits the merge brought in. A commit belongs to at most one task. Commits no merge claimed are only counted (`direct_commits`).
 - Commit author times are sorted and split into sessions wherever the gap is more than `SESSION_GAP_MIN = 120` minutes.
 - `low_min` is the sum of the session lengths (first to last commit). `high_min` is `low_min + LEAD_IN_MIN * sessions` with `LEAD_IN_MIN = 30`, for the work before the first commit of each session. `mid_min` is the average of the two.
@@ -58,7 +59,7 @@ The production numbers above are git-level. The task-level baseline is mined fro
 **Calibration.** The script writes a blind sheet (no times, dates or authors). A fresh planner estimates `est_hours_old_way` for each task from the blind sheet alone. The ratio `actual_mid_min / (estimate_hours * 60)` then gives a correction factor for planner estimates. Pre-registered before the run: if fewer than 15 tasks remain after skips, or more than half have `low = 0`, the factor is reported as indicative only.
 
 **Limits.**
-- Commit time is not hours worked. The result is a range, not a point.
+- Commit time is not hours worked. The result is a range, not a point. `[low, high]` is a plausible range, not a bound: real time can fall outside it, so "share inside [low, high]" is not a coverage guarantee.
 - Work done before the first commit or after the last one, and uncommitted work, is invisible. The lead-in only partly covers it.
 - Breaks shorter than 120 minutes count as work. Parallel tasks on different branches overlap, so their times are not additive.
 - Autocomplete already existed then, so this is the old way with autocomplete only.

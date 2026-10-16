@@ -33,13 +33,15 @@ LEAD_IN_MIN = 30
 SIZE_BUCKETS = (100, 500)
 DEFAULT_BEFORE = "2026-08-01"
 SEP, REC = "\x1f", "\x1e"
-# main merged into a feature branch (" into "), or a `git pull` merge on main (" of <remote>")
-SYNC = re.compile(r"^Merge (remote-tracking )?branch '(origin/)?(main|master)'(.* into | of )")
+# Sync merges are not tasks: main merged into a branch, a `git pull` merge on main, a pull on a feature branch.
+SYNC = re.compile(
+    r"^Merge (remote-tracking branch '(origin/)?(main|master)'(.* into |$)"
+    r"|branch '(main|master)'(.* into | of )"
+    r"|branch '(?P<b>[^']+)' of .* into (?P=b)$)"
+)
 BRANCH = (re.compile(r"^Merge branch '([^']+)'"), re.compile(r"^Merge pull request #\d+ from [^/\s]+/(\S+)"))
 TYPES = ("feat", "fix", "other")  # tie-break order
-ACTUAL_KEYS = (
-    "id merged n_commits n_parents nested_merges binary_files authors sessions low_min high_min mid_min".split()
-)
+ACTUAL_KEYS = "id merged n_commits n_parents nested_merges binary_files authors sessions low_min high_min mid_min"
 BLIND_KEYS = "id branch type n_commits files code_lines test_share subjects".split()
 ALL_REFS = ("--exclude=refs/stash", "--all")  # a stash is a merge-shaped commit, not a task
 LOG_FIELDS = f"%H{SEP}%P{SEP}%at{SEP}%an{SEP}%s"
@@ -189,10 +191,16 @@ def summarize(tasks: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def mine(repo: str, before: datetime.date) -> dict[str, Any]:
+    if not repo.strip():
+        raise GitError("empty repository path")
     top = run_git(repo, "rev-parse", "--is-inside-work-tree", "--show-toplevel").split("\n")
     if top[0] != "true":
         raise GitError("not a git work tree")
-    if not os.path.samefile(top[1], repo):
+    try:
+        is_root = os.path.samefile(top[1], repo)
+    except OSError:
+        is_root = False
+    if not is_root:
         raise GitError("not a repository root (give the top-level directory)")
     merges, sync = list_merges(repo, before)
     plain = run_git(repo, "log", *ALL_REFS, "--no-merges", f"--format=%H{SEP}%aI").splitlines()
@@ -211,15 +219,8 @@ def mine(repo: str, before: datetime.date) -> dict[str, Any]:
             skipped["empty"] += 1
             continue
         claimed.update(c["sha"] for c in commits)
-        tasks.append(
-            build_task(
-                sha,
-                n_parents,
-                subject,
-                commits,
-                sum(c["parents"] > 1 and c["sha"] != sha and not SYNC.match(c["subject"]) for c in rng),
-            )
-        )
+        nested = sum(c["parents"] > 1 and c["sha"] != sha and not SYNC.match(c["subject"]) for c in rng)
+        tasks.append(build_task(sha, n_parents, subject, commits, nested))
         tasks[-1]["merged"] = day
     return {"tasks": tasks, "direct_commits": len(direct - claimed), "skipped": skipped}
 
@@ -254,7 +255,7 @@ def report(args: argparse.Namespace, res: dict[str, Any]) -> int:
         "generated": datetime.date.today().isoformat(), "groups": summarize(tasks),
         "constants": {"SESSION_GAP_MIN": SESSION_GAP_MIN, "LEAD_IN_MIN": LEAD_IN_MIN, "SIZE_BUCKETS": SIZE_BUCKETS},
     }  # fmt: skip
-    actuals = [{k: t[k] for k in ACTUAL_KEYS} for t in tasks]
+    actuals = [{k: t[k] for k in ACTUAL_KEYS.split()} for t in tasks]
     blind = sorted(({k: t[k] for k in BLIND_KEYS} for t in tasks), key=lambda b: b["id"])
     dump = {"repo": Path(args.repo).resolve().name, "summary": summary, "actuals": actuals}
     for path, obj in ((args.json_out, dump), (args.blind, blind)):

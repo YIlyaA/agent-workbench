@@ -93,7 +93,7 @@ Renamed paths: numstat prints `old => new` or `pre/{a => b}/post`. Resolve each 
 - [ ] No `shell=True`, no git subcommand other than `log`, `rev-parse` and `rev-list` (the verifier greps for this).
 - [ ] `docs/baseline.md`: the section "Task-level baseline in this repo (old way, timed)" is replaced by "Task-level baseline from git history". It gives the method, the constants, the limits (commit time is not hours worked; autocomplete already existed then; author aliases; the result is a range, not a point; uncommitted work before and after a session is invisible; breaks shorter than 120 min count as work) and two `<TODO>` tables: (1) the summary per group: n, median low, high and mid minutes; (2) calibration: tasks estimated, median `actual_mid_min / (estimate_hours * 60)`, p25 to p75, date.
 - [ ] `METRICS.md` step 3 says the task-level baseline comes from `scripts/historic_baseline.py`: merges are tasks, sessions split at more than 120 min, the range adds 30 min lead-in per session, and estimates are calibrated blind. No other line in METRICS.md changes.
-- [ ] Diff of at most 300 lines in total. If the script and tests together go over this, stop and report with a split proposal: (a) script and tests, (b) docs. Do not drop edge-case tests to fit.
+- [ ] Diff of at most 600 lines in total (raised from 300 by the human). If the script and tests together go over this, stop and report with a split proposal: (a) script and tests, (b) docs. Do not drop edge-case tests to fit.
 - [ ] `uv run python scripts/check.py` passes on the PR's CI (Linux, macOS, Windows).
 
 ## Edge cases
@@ -158,6 +158,7 @@ Renamed paths: numstat prints `old => new` or `pre/{a => b}/post`. Resolve each 
 - Start / end: 21:14 / attempt 1 stopped 21:19 (diff limit reached, split proposed); attempt 2 finished 21:25
 - Limit: raised by the human 2026-10-16 after verifier sizing (diff_limit_lines 350 -> 600)
 - Attempt 2: fixed the 8 verifier findings (stash refs excluded, topological merge order, root commits kept, binary_files in actuals, exact blind key set and no unix seconds, sync merges not counted as nested, clean errors for unwritable output and non-root paths, pull merges on main are sync), applied the free trims, did docs part (b)
-- Checks run (command and real output): `uv run python scripts/check.py` after attempt 2 -> ruff check OK, ruff format OK, mypy OK (17 files), pytest 227 passed, agent layer OK, ALL CHECKS PASSED.
+- Attempt 3 (21:30): sync regex covers remote-tracking and feature-branch pulls, empty repo arg exits 2, trims, docs notes.
+- Checks run (command and real output): `uv run python scripts/check.py` after attempt 3 -> ruff check OK, ruff format OK, mypy OK (17 files), pytest 242 passed, agent layer OK, ALL CHECKS PASSED.
 - Verifier verdict and findings:
 - Human review (minutes, notes):

@@ -42,8 +42,9 @@ class Fx:
         self.git("add", "-A")
         self.git("commit", "-q", "-m", subject, "--allow-empty", date=date, author=author)
 
-    def merge(self, date: str, *branches: str, msg: str | None = None) -> None:
-        self.git("merge", "--no-ff", "-q", "-m", msg or f"Merge branch '{branches[0]}'", *branches, date=date)
+    def merge(self, date: str, *branches: str, msg: str | None = None, flags: tuple = ()) -> None:
+        msg = msg or f"Merge branch '{branches[0]}'"
+        self.git("merge", "--no-ff", "-q", *flags, "-m", msg, *branches, date=date)
 
     def branch(self, name: str, commits: list, merge_date: str | None = None, base: str = "main") -> None:
         self.git("switch", "-q", "-c", name, base)
@@ -166,17 +167,14 @@ def test_root_commit_in_range(tmp_path: Path) -> None:
     fx.git("switch", "-q", "--orphan", "o")
     fx.commit(D.format(2, "09:00"), "feat: root", {"r.py": 2})
     fx.git("switch", "-q", "main")
-    fx.git(
-        "merge",
-        "--no-ff",
-        "-q",
-        "--allow-unrelated-histories",
-        "-m",
-        "Merge branch 'o'",
-        "o",
-        date=D.format(3, "09:00"),
-    )
+    fx.merge(D.format(3, "09:00"), "o", flags=("--allow-unrelated-histories",))
     assert [t["n_commits"] for t in run(fx)[0]["actuals"]] == [1]
+
+
+def test_empty_repo_arg(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    monkeypatch.chdir(base(tmp_path).repo)
+    assert hb.main([""]) == 2
+    assert len(capsys.readouterr().err.strip().splitlines()) == 1
 
 
 def test_bad_cutoff(tmp_path: Path) -> None:
@@ -234,11 +232,47 @@ def test_sync_merge_skipped(tmp_path: Path) -> None:
     assert [(t["n_commits"], t["nested_merges"]) for t in data["actuals"]] == [(1, 0)]
 
 
-def test_pull_merge_is_sync(tmp_path: Path) -> None:
+SYNC_YES = [
+    "Merge branch 'main' into feat-x",
+    "Merge remote-tracking branch 'origin/main' into feat-x",
+    "Merge remote-tracking branch 'origin/main'",
+    "Merge branch 'main' of example.test:x/y",
+    "Merge branch 'feat' of example.test:x/y into feat",
+]
+SYNC_NO = [
+    "Merge branch 'main-menu' into feat-x",
+    "Merge branch 'mainline'",
+    "Merge remote-tracking branch 'upstream/main'",
+    "Merge branch 'develop' into feat-x",
+    "Merge branch 'feat' of example.test:x/y into other",
+    "Merge branch 'feat'",
+    "Merge pull request #3 from o/main",
+]
+
+
+@pytest.mark.parametrize(
+    ("subject", "want"),
+    [(s, True) for s in SYNC_YES] + [(s, False) for s in SYNC_NO],
+    ids=[f"c{i}" for i in range(len(SYNC_YES + SYNC_NO))],
+)
+def test_sync_regex(subject: str, want: bool) -> None:
+    assert bool(hb.SYNC.match(subject)) is want
+
+
+@pytest.mark.parametrize(
+    "msg",
+    [
+        "Merge branch 'main' of example.test:x/y",
+        "Merge remote-tracking branch 'origin/main'",
+        "Merge branch 'c' of u into c",
+    ],
+    ids=["pull", "remote", "feat-pull"],
+)
+def test_pull_merge_is_sync(tmp_path: Path, msg: str) -> None:
     fx = base(tmp_path)
     fx.branch("b", [(D.format(2, "09:00"), "feat: b", {"b.py": 1})], D.format(3, "09:00"))
     fx.branch("c", [(D.format(4, "09:00"), "feat: c", {"c.py": 1})])
-    fx.merge(D.format(5, "09:00"), "c", msg="Merge branch 'main' of example.test:x/y")
+    fx.merge(D.format(5, "09:00"), "c", msg=msg)
     s = run(fx)[0]["summary"]
     assert (s["tasks"], s["skipped"]["sync"]) == (1, 1)
 
@@ -337,9 +371,11 @@ def test_deterministic_and_read_only(tmp_path: Path) -> None:
         return tuple(fx.git(*a) for a in (("status", "--porcelain"), ("rev-parse", "HEAD"), ("for-each-ref",)))
 
     before = snap()
-    a, b = run(fx)[0], run(fx)[0]
-    a["summary"].pop("generated"), b["summary"].pop("generated")
-    assert a == b and a["repo"] == "repo x" and snap() == before
+    texts = []
+    for _ in range(2):
+        run(fx)
+        texts.append(re.sub(r'"generated": "[^"]*"', "", (fx.root / "out.json").read_text("utf-8")))
+    assert texts[0] == texts[1] and '"repo": "repo x"' in texts[0] and snap() == before
 
 
 def test_partial_failure(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
