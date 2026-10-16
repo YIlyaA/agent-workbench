@@ -34,17 +34,19 @@ Traces to the guardrails objective in `AGENTS.md`: the hook must block real dang
 
 Nothing else. If another path is needed, stop and ask.
 
-## Approach (recommended, builder may refine)
-Keep `blocked_reason(command: str) -> str | None` as the public function; tests and `main()` already use it. Stdlib only (`re`, `shlex`, `json`, `sys`, `os.path`/`pathlib` for basename), Python 3.10+ typing, no OS-specific code.
+## Approach (REVISED 2026-10-16 after verifier FAIL; human chose "invert the design")
 
-1. **Pre-pass.** Join backslash-newline continuations. Remove heredoc bodies: for each `<<` / `<<-` with delimiter `WORD`, `'WORD'` or `"WORD"`, drop the lines up to the terminator line (leading tabs allowed for `<<-`). For an unquoted delimiter, keep any `$(...)` and backtick bodies from the dropped lines as extra segments, because the shell runs them.
-2. **Tokenize** with `shlex.shlex(text, posix=True, punctuation_chars=True)`, `whitespace_split=True`, `commenters="#"`. Split segments on the operator tokens `&&`, `||`, `;`, `|`, `&`, `(`, `)`, and on newlines (split lines before tokenizing, so newlines are separators).
-3. **Command substitution.** Extract `$(...)` and backtick bodies from unquoted and double-quoted text and evaluate each as its own command. Single-quoted text is never executed, so it is skipped.
-4. **Per segment:** skip leading `NAME=value` assignments and wrappers (`env`, `command`, `exec`, `nohup`, `time`, `sudo`, `xargs`). If argv[0] is a shell interpreter (`bash`, `sh`, `zsh`, `dash`, `ksh`, `fish`, `pwsh`, `powershell`, `cmd`, `eval`) and has a `-c` style flag (`-c`, `-lc`, `-ic`, `/c`, `-Command`, `-command`; for `eval` all args), evaluate the command string recursively (depth limit, for example 5; past the limit fall back to the legacy regex). If the basename of argv[0] is `git` or `git.exe`: skip git global options (`-C <path>`, `-c <k=v>`, `--git-dir=...`, `--work-tree=...`, `--no-pager`, `-P`, `--bare`, ...), take the subcommand and apply the rules to its own args only.
-5. **Rules on tokens, not on raw text:**
-   - `push`: any of `--force`, `--force-with-lease[=...]`, `--force-if-includes`, `-f`, a short-flag cluster containing `f` (for example `-fu`), or a refspec starting with `+` → "force push". Any refspec whose destination (the part after the last `:`, or the whole refspec if no `:`) is `main`, `master`, `refs/heads/main` or `refs/heads/master` → "push to main/master".
-   - `reset` with `--hard`; `clean` with a short-flag cluster containing `f` or `--force`; `branch` with `-D` (or `--delete --force`); `checkout`/`restore` with `.` as the pathspec (optionally after `--`). Same labels as today.
-6. **Fail-safe fallback.** If `shlex` raises `ValueError` (unterminated quote, etc.) on a segment, run the legacy `DANGEROUS` regexes on that segment only. If anything else raises inside `blocked_reason`, run the legacy regexes on the whole command. `main()` keeps returning 0 for malformed JSON or a non-string command.
+Attempt 1, a parser that allows whatever it does not understand, failed verification: 8 findings and regressions against the old hook (see Log). Revised rule: **the old regex stays the judge. A command the old patterns flag is allowed only when one of two narrow, provable exceptions applies. Anything unusual stays blocked.**
+
+1. `legacy_reason(cmd)`: the old patterns, unchanged in what they block. Extend only so that git global options before the subcommand are also caught: `git -C <dir> push --force`, `git -c k=v push -f`, `git --git-dir=x push origin main`. More blocking is allowed; less is not.
+2. `blocked_reason(cmd)`:
+   - `legacy_reason` is None → None.
+   - Exception A or B applies → None.
+   - Otherwise → the legacy reason.
+3. **Exception A, a quoted heredoc written to a file.** The whole command must exactly match one line `cat` or `tee`, optionally `-a`, a redirect or path made only of `[\w./-]` characters, and `<<'WORD'` or `<<"WORD"` (a quoted literal `\w+` delimiter, so the shell does not expand the body), then the body, then a line that is exactly `WORD`, and then **nothing after it** (trailing whitespace only). The first line, without the heredoc operator, must be clean under `legacy_reason`. An unquoted delimiter (`<<EOF`, `<<\EOF`, `<<E"O"F`) is never an exception.
+4. **Exception B, chained commands where the match crosses commands.** Tokenize with `shlex.shlex(cmd, posix=True, punctuation_chars="();<>|&\n")`, so an unquoted newline separates commands. Any tokenizer error means no exception. There is also no exception if the raw command contains `$`, a backtick, `<<`, `<(`, `>(`, a backslash before a newline, or a token `(` or `)`. Split segments on `&&`, `||`, `;`, `|`, `&` and newline tokens. Every segment's first token must be in `SAFE_FIRST = {"git", "gh", "echo", "printf", "cd", "ls", "pwd", "true"}`. For each `git` segment, run `legacy_reason` on its tokens joined by spaces; any hit means no exception. Segments that start with anything else in `SAFE_FIRST` are inert text. A pipe into any command not in `SAFE_FIRST` (`| bash`, `| sh`) fails the first-token rule, so it stays blocked.
+5. **Input cap:** if `len(cmd) > MAX_LEN` (100_000), return a block reason when `git` appears in it, otherwise None. This stops the 71 s regex stall.
+6. Malformed hook JSON still exits 0. Stdlib only. Target diff is **at most 150 lines**.
 
 ## Acceptance criteria
 - [ ] Both real false positives from the Goal pass (exit 0).
