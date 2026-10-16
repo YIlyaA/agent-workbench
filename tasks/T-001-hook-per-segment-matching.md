@@ -1,6 +1,6 @@
 ---
 id: T-001
-status: ready-for-review  # draft | approved | in-progress | ready-for-review | done | rejected
+status: done  # draft | approved | in-progress | ready-for-review | done | rejected
 risk: medium             # low | medium | high  (medium and high: human approves each risky command)
 autonomy: L1             # guardrail code: builder implements after approval, human applies settings change and merges
 type: bugfix             # feature | bugfix | docs | skill | metrics | research
@@ -148,3 +148,13 @@ Attempt 1, a parser that allows whatever it does not understand, failed verifica
   - **Final verdict: PASS.** `review_findings`: 8 (attempt 1) + 2 nits + 3 (probe) = 13. First pass not green.
 - Attempt 2d: Windows CI fix (long test ids). The BLOCKED, ALLOWED and FUZZ parametrizations now use `ids=short_id` (length plus first 60 chars), since pytest stores the node id in PYTEST_CURRENT_TEST and Windows caps env vars at 32,767 chars; the 100 KB fuzz string and the 7-level nested bash command had produced huge ids. Longest collected id line is now 245 chars. Hook code unchanged. check.py: 187 passed, ALL CHECKS PASSED.
 - Human review (minutes, notes):
+
+## Retro (2026-10-16)
+
+1. **What worked:** the fresh verifier failed attempt 1 with 8 real bypasses. Without it, a weaker guardrail would have shipped looking green, with 137 tests passing.
+2. **Root cause of attempt 1:** "parse the shell and allow what looks safe" fails open. The inverted design, where the old rule judges and only narrow, proven exceptions pass, is safe by construction and needed far less code.
+3. **Process gap:** a safety classifier stopped the second verifier before it could probe for bypasses. The orchestrator probe (calling `blocked_reason` directly, executing nothing) found 3 more regressions. Guardrail reviews need that probe as a required step.
+4. **Cross-OS CI paid off at once:** a Windows-only failure (pytest ids over the env var limit) was invisible on macOS and Linux.
+5. **Measurement:** 41 active minutes against a frozen 3 h estimate gives 4.4×, with 13 review findings and the first pass not green. Open: `ask` prompts are unverified in bypass mode, and no review minutes were reported.
+
+**Proposed rule change:** `verify-diff` gets a required old-vs-new probe for guardrail code (see the diff in the release PR).
