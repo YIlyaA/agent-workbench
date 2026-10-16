@@ -1,1 +1,2 @@
 id,date,type,method,est_hours_old_way,my_active_minutes,agent_runtime_minutes,start,end,tests_green,review_findings,rolled_back,outcome
+T-001,2026-10-16,bugfix,agent,3,41,41,13:47,14:36,no,13,no,"git guardrail hook no longer blocks safe push+PR chains or quoted heredocs to files; every command the old hook blocked is still blocked"
