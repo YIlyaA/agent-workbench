@@ -1,6 +1,6 @@
 ---
 id: T-002
-status: approved          # draft | approved | in-progress | ready-for-review | done | rejected
+status: in-progress         # draft | approved | in-progress | ready-for-review | done | rejected
 risk: low                # read-only analysis of another repo's git metadata; nothing is written there
 autonomy: L2             # L0 observe | L1 recommend | L2 approve-to-execute | L3 guardrailed auto
 type: metrics            # feature | bugfix | docs | skill | metrics | research
@@ -155,7 +155,7 @@ Renamed paths: numstat prints `old => new` or `pre/{a => b}/post`. Resolve each 
 - **Estimate basis (`est_hours_old_way: 5`):** a backend Python engineer with autocomplete. About 1.5 h for the script (git parsing, rename forms, session math, CLI), about 2.5 h for tests (a deterministic temp-repo fixture with dates, octopus and nested merges, Windows line endings), about 0.5 h for docs, and about 0.5 h for check.py and CI fixes. T-001 (a hook of similar size, 3 h) is the reference point; this task has more fixture work. The human confirms or changes it at approval.
 
 ## Log (filled in by the builder and verifier)
-- Start / end:
-- Checks run (command and real output):
+- Start / end: 21:14 / stopped 21:19 (diff limit reached; docs part not done, split proposed)
+- Checks run (command and real output): `uv run python scripts/check.py` -> ruff check OK, ruff format OK, mypy OK (17 files), pytest 221 passed, agent layer OK, ALL CHECKS PASSED. Script plus tests alone are over 560 lines (limit 350 / 300), so docs/baseline.md and METRICS.md are left for part (b).
 - Verifier verdict and findings:
 - Human review (minutes, notes):
