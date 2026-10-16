@@ -1,6 +1,6 @@
 ---
 id: T-001
-status: approved          # draft | approved | in-progress | ready-for-review | done | rejected
+status: ready-for-review  # draft | approved | in-progress | ready-for-review | done | rejected
 risk: medium             # low | medium | high  (medium and high: human approves each risky command)
 autonomy: L1             # guardrail code: builder implements after approval, human applies settings change and merges
 type: bugfix             # feature | bugfix | docs | skill | metrics | research
@@ -122,7 +122,10 @@ Keep `blocked_reason(command: str) -> str | None` as the public function; tests 
 - Revenue / Risk / Cost: no revenue impact. Risk is the main concern: a parser can miss a dangerous form that the old regex caught. The fallbacks and the "no existing BLOCKED case changes" criterion cover this. Cost: one builder session.
 
 ## Log (filled in by the builder and verifier)
-- Start / end:
-- Checks run (command and real output):
+- Start / end: 2026-10-16 13:47 / 14:06 local (includes a pause from 13:51 while the human reviewed a rejected write)
+- Diff size: 306 lines changed across the two files (hook +228 net, tests +79), over the 250 limit; flagged to the human, no fail-safe cases dropped. Split proposal: (1) per-segment + heredoc + quoting core, (2) interpreter/wrapper/substitution recursion.
+- Tests-first: before the hook change 22 new cases failed for the expected reasons (both real false positives and the "new" cases).
+- Checks run (command and real output): `uv run python scripts/check.py`
+  ruff check: All checks passed! / ruff format: 52 files already formatted / mypy: Success: no issues found in 15 source files / pytest: 137 passed in 1.51s / agent layer: OK / ALL CHECKS PASSED
 - Verifier verdict and findings:
 - Human review (minutes, notes):
