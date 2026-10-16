@@ -16,7 +16,7 @@ Spawn the `planner` agent with the goal. It reads `CONTEXT.md` â†’ `AGENTS.md` â
 
 ### Step 2: Check the task files
 For each `tasks/T-<nnn>-*.md`, confirm:
-- the scope lists exact paths, with none under `.claude/settings.json`, `.claude/hooks/`, `~/.claude/` or other repos (those are L1/L0 work: draft only)
+- the scope lists exact paths, with none under `.claude/settings.json`, `.claude/hooks/`, `~/.claude/` or other repos (guardrail paths are L2: allowed only when the human asked for that change)
 - the acceptance criteria include `uv run python scripts/check.py` passing
 - the edge-case table has a test per row
 - `est_hours_old_way` is filled, and `budget_minutes`/`budget_usd` are within 30 min / $5
