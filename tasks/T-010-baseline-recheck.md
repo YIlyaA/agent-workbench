@@ -92,6 +92,7 @@ No code. The checks are the run steps above, the verifier's privacy grep, and `u
   - Arguments: no `--author`. Old = main's script before T-007; new = T-007 branch version 69594a1 (PR #18 not yet merged)
   - Closed months reproduced by old(now): 2025-06..2026-07 yes except 2026-05 (published 10 commits, today 9). 2026-08+ no: commits published vs today 2026-08 70 vs 115, 2026-09 31 vs 4, 2026-10 (to the 10th) 44 vs none; total 472 vs 445; 19 published cells differ. Human decision 2026-10-17: record "not reproducible", recompute nothing.
   - Published cells changed by the fix: 0 for 2025-06..2026-07; 2026-08+ not assessable. Only 2026-08 moves: commits 115->113, commits/day 10.45->10.27, code lines 59762->58895, lines/day 5433->5354, test share 0.383->0.380, fix share 0.374->0.381 (2 removed = stash commits)
+  - Attempt 2 (wording): pre-agent total published 327 vs today 326 (one commit, 2026-05); 2026-03 1 cell differs (commits/day rounding, 5/4 = 1.25 shown 1.3 vs 1.2); 19 differing cells = 2026-03 1, 2026-05 5 (commits, commits/day, code lines, lines/day, fix share), 2026-08 6, 2026-09 7. Cause not established. Fix effect on published 2026-08+ cells not assessable.
   - Merges totals: before 2026-08 old 38 / new 38; 2026-08..09 old 1 / new 1
   - Ratio: unverified (not recomputed)
   - Repeat runs identical: yes (except `generated`)
