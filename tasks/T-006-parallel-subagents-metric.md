@@ -106,7 +106,7 @@ Nothing else. Do **not** edit `session-log/tasks.csv` (the orchestrator writes t
 - **Size basis (250 lines):** about 80 lines of code, about 18 tests at about 8 lines each with a shared fixture helper.
 
 ## Log (filled in by the builder and verifier)
-- Start / end: 2026-10-17 10:07 - 10:10 CEST (builder). Attempt 2 (verifier nits: OverflowError, zero builders prints 0, builder spans by type, merged tests, spec example fixed). Diff vs 2cdb273: 293 changed lines (280 insertions, 13 deletions) vs limit 250; tests 179+ of them. Over the limit, goes to the human.
+- Start / end: 2026-10-17 10:07 - 10:10 CEST (builder). Attempt 2 (verifier nits: OverflowError, zero builders prints 0, builder spans by type, merged tests, spec example fixed). Diff vs 2cdb273: 293 changed lines (280 insertions, 13 deletions) vs limit 250; tests 179+ of them. Over the limit, goes to the human. Attempt 3 (CI timezone): test_window_crosses_midnight now builds its fixture in local time; tests pass under TZ=UTC, America/Los_Angeles, Europe/Berlin.
 - Checks run (command and real output): `uv run python scripts/check.py` -> ruff check OK, ruff format OK, mypy OK, 263 passed, agent layer OK, ALL CHECKS PASSED. Real run: `max concurrent subagents: 5 (2026-10-17 10:07-10:08)`, `max concurrent builders: 3 (2026-10-17 10:06-10:07)`
 - Verifier verdict and findings:
 - Human review (minutes, notes):

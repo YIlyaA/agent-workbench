@@ -323,7 +323,8 @@ def test_concurrency_touching() -> None:
 
 
 def test_window_crosses_midnight(tmp_path) -> None:
-    a, b = t(23, 58), t(0, 3, day=17)
+    a = datetime(2026, 10, 16, 23, 58).astimezone()  # local 23:58, so it crosses midnight in any TZ
+    b = a + timedelta(minutes=5)
     agent(tmp_path, "s", "a", "builder", [a, b])
     out = report([], [], tmp_path, subagents=load_subagents(tmp_path))
     assert f"max concurrent builders: 1 ({local(a, '%Y-%m-%d %H:%M')}-{local(b, '%Y-%m-%d %H:%M')})" in out
