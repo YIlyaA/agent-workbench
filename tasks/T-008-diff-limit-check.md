@@ -1,6 +1,6 @@
 ---
 id: T-008
-status: ready-for-review         # draft | approved | in-progress | ready-for-review | done | rejected
+status: in-progress         # draft | approved | in-progress | ready-for-review | done | rejected
 risk: low                # new read-only script; turns over-limit branches red in check.py (intended)
 autonomy: L2             # L0 observe | L1 recommend | L2 approve-to-execute | L3 guardrailed auto
 type: feature            # feature | bugfix | docs | skill | metrics | research
@@ -108,6 +108,9 @@ Flow: [docs/diagrams/diff-limit-check.md](../docs/diagrams/diff-limit-check.md).
 - Checks run: uv run python scripts/check.py, round 2: 351 passed, 3 xfailed; agent layer OK; `diff limit: 399/350 lines (tests 231; base 8562980; task file excluded)` then FAILED: diff limit
 - Diff size: 399 (tests 231, script 167, check.py 1) vs limit 350. HARD STOP, not trimmed; human decides.
 - Limit raised to 400 by the human (PR #19); step now passes at 399/400.
+- Rounds (commit times): round 1 13:08-13:13 (340/300, stopped); round 2 13:15-13:16 (399/350, stopped); limit 400 merge 13:19-13:20 (399/400 passed, `ALL CHECKS PASSED`); round 3 (spoofing fix) after 13:20: 407/400, HARD STOP, not trimmed.
+- Round 3: failing first: test_newline_in_name_cannot_spoof. Real line: `diff limit: 407/400 lines (tests 239; base b93ee14; task file excluded)`, FAILED: diff limit. Restored the `"pwned" not in out` assertion. `say()` now escapes the whole string (the two-line base hint became one line).
+- Accepted deviation: tests import `git` and `isolate` from tests.test_git_metrics (isolate wraps clean_env) instead of `clean_env`/`git`/`commit`.
 - Verifier verdict and findings:
 - Human review (minutes, notes):
 

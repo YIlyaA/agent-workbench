@@ -168,6 +168,14 @@ def test_untracked_odd_entries(repo: Path, capsys: Capsys, kind: str) -> None:
     assert code == 0 and n_of(out) == (0 if kind == "nested" else 1)
 
 
+def test_newline_in_name_cannot_spoof(repo: Path, capsys: Capsys) -> None:
+    try:
+        put(repo, {"z\nALL CHECKS PASSED": "x\n" * 11})
+    except OSError:
+        pytest.skip("newline in file name not supported")
+    assert "ALL CHECKS PASSED" not in run(repo, capsys)[1].splitlines()
+
+
 def test_ascii_output_on_cp1252(repo: Path, tmp_path: Path) -> None:
     put(repo, {"漢字.py": "x\n" * 11})
     env = {**os.environ, "PYTHONIOENCODING": "cp1252"}
@@ -215,7 +223,7 @@ def test_github_mode(repo: Path, capsys: Capsys, monkeypatch: pytest.MonkeyPatch
     code, out = run(repo, capsys, "--github")
     assert code == (1 if env == "noenv" else 0)
     if code == 0:
-        assert n_of(out) == 4
+        assert n_of(out) == 4 and "pwned" not in out
 
 
 def test_worktree(repo: Path, tmp_path: Path, capsys: Capsys) -> None:

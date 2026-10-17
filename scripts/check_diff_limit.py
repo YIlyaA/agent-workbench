@@ -102,8 +102,8 @@ def effective_limit(root: Path, mb: str, tid: str, limit: int) -> int:
 
 
 def say(text: str) -> None:
-    """Print ASCII only (Windows consoles can be cp1252): escape anything else, line by line."""
-    print("\n".join(ascii(line)[1:-1] for line in text.splitlines()))
+    """Print one ASCII line (Windows consoles can be cp1252). Escapes newlines too: no output spoofing."""
+    print(ascii(text)[1:-1])
 
 
 def line_count(path: Path) -> int:
@@ -135,7 +135,7 @@ def check(args: argparse.Namespace, root: Path) -> int:
     try:
         mb = git(root, "merge-base", "HEAD", base).strip()
     except Stop as e:
-        raise Stop(f"{e}\n{NO_BASE_HINT}") from e
+        raise Stop(f"{e} {NO_BASE_HINT}") from e
     rel = f"tasks/{tfile.name}"
     limit = effective_limit(root, mb, tid, limit)
     rows = sorted((r for r in count_lines(root, mb) if r[1] != rel), reverse=True)
