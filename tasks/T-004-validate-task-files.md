@@ -89,6 +89,7 @@ Nothing else. Do **not** edit `session-log/tasks.csv` (the orchestrator writes t
 
 ## Log (filled in by the builder and verifier)
 - Start / end: 10:06 / 10:07 (system clock)
-- Checks run (command and real output): `uv run python scripts/check.py` -> ruff check/format OK, mypy no issues in 17 files, pytest 259 passed, agent layer: OK, ALL CHECKS PASSED. Diff 129 insertions, 5 deletions.
+- Checks run (command and real output): `uv run python scripts/check.py` -> ruff check/format OK, mypy no issues in 17 files, pytest 259 passed, agent layer: OK, ALL CHECKS PASSED. Attempt 1 diff vs 2cdb273: 132 insertions+deletions across 3 files (the first figure, 129/5, excluded the task file).
+- Attempt 2 (after verifier FAIL, 6 findings fixed): check.py -> ruff OK, mypy OK, pytest 264 passed, agent layer: OK, ALL CHECKS PASSED. Diff vs 2cdb273: about 156 insertions and 8 deletions across 3 files.
 - Verifier verdict and findings:
 - Human review (minutes, notes):

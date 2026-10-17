@@ -90,40 +90,61 @@ def errs(root: Path, name: str) -> list[str]:
 
 
 def test_task_statuses_match_template() -> None:
-    assert TASK_STATUSES == ("draft", "approved", "in-progress", "ready-for-review", "done", "rejected")
+    line = next(
+        x for x in (REPO / "tasks/_template.md").read_text(encoding="utf-8").splitlines() if x.startswith("status:")
+    )
+    assert TASK_STATUSES == tuple(v.strip() for v in line.split("#", 1)[1].split("|"))
+
+
+def test_no_task_files_is_valid(tmp_path: Path) -> None:
+    minimal_layer(tmp_path)
+    (tmp_path / "tasks/T-001-x.md").unlink()
+    assert validate(tmp_path) == []
+
+
+@pytest.mark.parametrize("value", ["", "  # todo"], ids=["empty", "comment"])
+def test_task_empty_id(tmp_path: Path, value: str) -> None:
+    minimal_layer(tmp_path)
+    task_file(tmp_path, "T-002-x.md", id=value)
+    e = errs(tmp_path, "T-002-x.md")
+    assert len(e) == 1 and "id is empty" in e[0]
+
+
+def test_task_lowercase_name(tmp_path: Path) -> None:
+    minimal_layer(tmp_path)
+    task_file(tmp_path, "t-002-x.md", id="t-002")
+    assert any("must start with T-" in e for e in errs(tmp_path, "t-002-x.md"))
+
+
+def test_task_not_utf8(tmp_path: Path) -> None:
+    minimal_layer(tmp_path)
+    (tmp_path / "tasks/T-002-x.md").write_bytes(b"---\nid: T-002\n---\ncaf\xe9\n")
+    e = errs(tmp_path, "T-002-x.md")
+    assert len(e) == 1 and "not valid UTF-8" in e[0]
 
 
 def test_task_draft_empty_estimate_ok(tmp_path: Path) -> None:
     minimal_layer(tmp_path)
     task_file(tmp_path, "T-002-x.md", est_hours_old_way="   # comment")
+    task_file(tmp_path, "T-009.md", id="T-009")
+    task_file(tmp_path, "T-003-x.md", status="done  # draft | approved", est_hours_old_way="5  # confirmed")
     assert validate(tmp_path) == []
 
 
 @pytest.mark.parametrize("status", ["approved", "done"])
-def test_task_status_needs_estimate(tmp_path: Path, status: str) -> None:
+@pytest.mark.parametrize("est", ["", None], ids=["empty", "absent"])
+def test_task_status_needs_estimate(tmp_path: Path, status: str, est: str | None) -> None:
     minimal_layer(tmp_path)
-    task_file(tmp_path, "T-002-x.md", status=status)
+    task_file(tmp_path, "T-002-x.md", status=status, est_hours_old_way=est)
     e = errs(tmp_path, "T-002-x.md")
     assert len(e) == 1 and "est_hours_old_way" in e[0]
 
 
-def test_task_done_with_comments_ok(tmp_path: Path) -> None:
+@pytest.mark.parametrize("key", ["budget_usd", "type"])
+def test_task_missing_key(tmp_path: Path, key: str) -> None:
     minimal_layer(tmp_path)
-    task_file(tmp_path, "T-002-x.md", status="done  # draft | approved", est_hours_old_way="5  # confirmed")
-    assert validate(tmp_path) == []
-
-
-def test_task_missing_key(tmp_path: Path) -> None:
-    minimal_layer(tmp_path)
-    task_file(tmp_path, "T-002-x.md", budget_usd=None)
-    assert any("missing frontmatter key 'budget_usd'" in e for e in errs(tmp_path, "T-002-x.md"))
-
-
-def test_task_missing_type(tmp_path: Path) -> None:
-    assert "type" in REQUIRED_TASK_KEYS
-    minimal_layer(tmp_path)
-    task_file(tmp_path, "T-002-x.md", type=None)
-    assert any("'type'" in e for e in errs(tmp_path, "T-002-x.md"))
+    task_file(tmp_path, "T-002-x.md", **{key: None})
+    assert any(f"missing frontmatter key '{key}'" in e for e in errs(tmp_path, "T-002-x.md"))
 
 
 @pytest.mark.parametrize("status", ["in progress", "Done", ""], ids=["space", "case", "empty"])
@@ -139,12 +160,6 @@ def test_task_id_mismatch(tmp_path: Path, name: str, tid: str) -> None:
     minimal_layer(tmp_path)
     task_file(tmp_path, name, id=tid)
     assert any("does not match file name" in e for e in errs(tmp_path, name))
-
-
-def test_task_id_equals_stem_ok(tmp_path: Path) -> None:
-    minimal_layer(tmp_path)
-    task_file(tmp_path, "T-009.md", id="T-009")
-    assert validate(tmp_path) == []
 
 
 def test_task_duplicate_id(tmp_path: Path) -> None:

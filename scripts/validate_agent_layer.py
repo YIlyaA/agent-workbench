@@ -55,17 +55,24 @@ def _check_keys(path: Path, root: Path, required: tuple[str, ...]) -> list[str]:
 def _check_task(path: Path, root: Path, ids: dict[str, Path]) -> list[str]:
     """Rules for one real task file. A UTF-8 BOM makes the block unrecognised: reported, not silent."""
     rel = path.relative_to(root)
-    fm = parse_frontmatter(path.read_text(encoding="utf-8"))
+    try:
+        fm = parse_frontmatter(path.read_text(encoding="utf-8"))
+    except UnicodeDecodeError:
+        return [f"{rel}: not valid UTF-8"]
     if fm is None:
         return [f"{rel}: no frontmatter block"]
     errors = [f"{rel}: missing frontmatter key '{k}'" for k in REQUIRED_TASK_KEYS if k not in fm]
+    if not path.name.startswith("T-"):
+        errors.append(f"{rel}: file name must start with T-")
     status = fm.get("status")
     if status is not None and status not in TASK_STATUSES:
         errors.append(f"{rel}: status '{status}' is not one of {', '.join(TASK_STATUSES)}")
-    elif status not in (None, "draft") and not fm.get("est_hours_old_way"):
+    elif status not in (None, "draft") and "est_hours_old_way" in fm and not fm["est_hours_old_way"]:
         errors.append(f"{rel}: est_hours_old_way is empty but status is '{status}'")
     tid = fm.get("id")
-    if tid:
+    if tid == "":
+        errors.append(f"{rel}: id is empty")
+    elif tid is not None:
         if path.stem != tid and not path.stem.startswith(tid + "-"):
             errors.append(f"{rel}: id '{tid}' does not match file name")
         if tid in ids:
@@ -93,7 +100,9 @@ def validate(root: Path) -> list[str]:
         errors.append("tasks/_template.md: missing")
 
     ids: dict[str, Path] = {}
-    for task in sorted((root / "tasks").glob("T-*.md")):
+    for task in sorted((root / "tasks").glob("*.md")):
+        if task.name == "_template.md" or not task.name.lower().startswith("t-"):
+            continue
         errors += _check_task(task, root, ids)
 
     if not (root / "AGENTS.md").exists():
