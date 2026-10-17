@@ -1,6 +1,6 @@
 ---
 id: T-008
-status: approved          # draft | approved | in-progress | ready-for-review | done | rejected
+status: in-progress         # draft | approved | in-progress | ready-for-review | done | rejected
 risk: low                # new read-only script; turns over-limit branches red in check.py (intended)
 autonomy: L2             # L0 observe | L1 recommend | L2 approve-to-execute | L3 guardrailed auto
 type: feature            # feature | bugfix | docs | skill | metrics | research
@@ -103,10 +103,10 @@ Flow: [docs/diagrams/diff-limit-check.md](../docs/diagrams/diff-limit-check.md).
 - Do not add an allowlist of excluded paths. Only the task's own file is excluded, on purpose (decision 0003).
 
 ## Log (filled in by the builder and verifier)
-- Start / end:
+- Start / end: 13:08 / stopped 13:11 at 340/300 (hard stop, not trimmed)
 - Failing tests before the code (first line):
 - Checks run (command and real output, including the `diff limit:` line):
-- Diff size (insertions + deletions vs merge-base, task file excluded):
+- Diff size: 340 (tests 189, script 150, check.py 1) vs limit 300. Stopped; human decides (fallback: split --github).
 - Verifier verdict and findings:
 - Human review (minutes, notes):
 
