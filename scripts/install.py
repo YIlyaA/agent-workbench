@@ -10,7 +10,8 @@ What it does:
   2. copies hooks/block_dangerous_git.py to ~/.claude/hooks/
   3. registers that hook in ~/.claude/settings.json (PreToolUse, matcher Bash),
      replacing the old bash version and keeping every other setting
-Existing files are backed up with a .bak-<timestamp> suffix, never deleted.
+Existing files are backed up with a .bak-<timestamp> suffix (plus -N when that name
+is taken), never overwritten or deleted.
 Copies, not symlinks: Windows symlinks need admin or developer mode.
 Stdlib only. Run by the human; agents never write to ~/.claude.
 """
@@ -55,6 +56,20 @@ def merge_settings(cfg: dict, hook_path: Path) -> dict:
     return cfg
 
 
+def _backup_dest(path: Path, stamp: str) -> Path:
+    """First free `<name>.bak-<stamp>[-N]`; a dangling symlink counts as taken.
+
+    Check-then-use is not atomic; fine for a tool the human runs one at a time.
+    """
+    base = f"{path.name}.bak-{stamp}"
+    candidate = path.with_name(base)
+    n = 0
+    while candidate.exists() or candidate.is_symlink():
+        n += 1
+        candidate = path.with_name(f"{base}-{n}")
+    return candidate
+
+
 def _backup(path: Path, actions: list[str], apply: bool) -> None:
     if not (path.exists() or path.is_symlink()):
         return
@@ -63,7 +78,7 @@ def _backup(path: Path, actions: list[str], apply: bool) -> None:
         if apply:
             path.unlink()
         return
-    dest = path.with_name(f"{path.name}.bak-{_stamp()}")
+    dest = _backup_dest(path, _stamp())
     actions.append(f"back up {path} -> {dest.name}")
     if apply:
         if path.is_dir():
