@@ -51,7 +51,7 @@ The 2.4x to 2.7x per-active-day ratio is **unverified** until the "with agents" 
 
 ## How to read this
 
-- Per active day, output is **about 2.4x to 2.7x higher** in the second period. That is a real, measured improvement. It is **not** 10x.
+- Per active day, the published table shows output **about 2.4x to 2.7x higher** in the second period. This ratio is **unverified**: the second period no longer reproduces from the project's current history (see the re-check above). It is **not** evidence of 10x.
 - The biggest quality change is the test share: from almost none to about a quarter of changed lines. Speed went up while testing went up too.
 - The fix share did not fall (it stayed around 20 to 40 percent in busy months). Fast output also means more follow-up fixes, and I should reduce that with better specs and a verifier agent.
 - The first period includes a very busy start (2025-08 and 2025-09) and several quiet months, so "before" is not one clean level. Ranges matter more than the average.
