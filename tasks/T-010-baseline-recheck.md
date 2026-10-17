@@ -96,8 +96,8 @@ No code. The checks are the run steps above, the verifier's privacy grep, and `u
   - Ratio: unverified (not recomputed)
   - Repeat runs identical: yes (except `generated`)
 - Start / end (record):
-- Checks run (command and real output):
-- Diff size (insertions + deletions vs merge-base, task file excluded):
+- Checks run (command and real output): `uv run python scripts/check.py` -> ALL CHECKS PASSED (310 passed, 3 xfailed; agent layer OK)
+- Diff size (insertions + deletions vs merge-base, task file excluded): 18 insertions, 0 deletions (docs/baseline.md)
 - Verifier verdict and findings:
 - Human review (minutes, notes):
 
