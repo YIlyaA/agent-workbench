@@ -4,7 +4,7 @@ status: approved          # draft | approved | in-progress | ready-for-review | 
 risk: low                # new read-only script; turns over-limit branches red in check.py (intended)
 autonomy: L2             # L0 observe | L1 recommend | L2 approve-to-execute | L3 guardrailed auto
 type: feature            # feature | bugfix | docs | skill | metrics | research
-diff_limit_lines: 300    # task file not counted
+diff_limit_lines: 350   # raised from 300 by the human 2026-10-17 after the hard stop at 340 (planner sizing too low)
 est_hours_old_way: 2     # confirmed by the human 2026-10-17; frozen
 budget_minutes: 30       # builder stops and reports when reached
 budget_usd: 5            # checked after the run with `npx ccusage`
