@@ -1,6 +1,6 @@
 ---
 id: T-006
-status: approved # draft | approved | in-progress | ready-for-review | done | rejected
+status: ready-for-review # draft | approved | in-progress | ready-for-review | done | rejected
 risk: low                # read-only on ~/.claude/projects transcripts; prints counts and times only
 autonomy: L2             # L0 observe | L1 recommend | L2 approve-to-execute | L3 guardrailed auto
 type: metrics            # feature | bugfix | docs | skill | metrics | research
@@ -69,7 +69,7 @@ Nothing else. Do **not** edit `session-log/tasks.csv` (the orchestrator writes t
 | Corrupt lines | `not json`, `[]`, `{"timestamp": 5}`, `{"timestamp": "yesterday"}`, `{}` among 2 valid lines | Only the 2 valid timestamps are kept | `test_subagents_corrupt_lines` |
 | No valid timestamps | jsonl with only corrupt lines; also an empty file | Agent dropped | same test, extra file |
 | Meta missing or corrupt | no `.meta.json`; `{bad`; `[]`; `{"agentType": 3}` | `agent_type == "unknown"` | `test_subagents_meta_fallback` (ids `none`, `bad`, `list`, `int`) |
-| Idle gap split | one builder at 11:47, 11:50, 12:20, 12:31 | Intervals `[11:47,11:50]`, `[12:20,12:31]` | `test_active_intervals_split` (pure) |
+| Idle gap split | one builder at 11:47, 11:50, then every 4 min from 12:20 to 12:31 | Intervals `[11:47,11:50]`, `[12:20,12:31]` (gap 11:50 to 12:20 is over 5 min) | `test_active_intervals_split` (pure) |
 | Gap exactly 5 min / just over | 10:00, 10:05, 10:10:01 | `[10:00,10:05]`, `[10:10:01,10:10:01]` | `test_active_intervals_boundary` (pure) |
 | Resume does not inflate | builder A as above; builder B active 12:00 to 12:10 only (in A's idle gap) | `builders_max == 1`, not 2 | `test_resume_gap_not_counted` |
 | Three builders overlap | A, B, C active 10:00 to 10:20, 10:05 to 10:25, 10:10 to 10:30 (records at most 5 min apart, so each is one interval); one verifier 10:12 to 10:14 | `max == 4` window 10:12-10:14; `builders_max == 3` window 10:10-10:20 | `test_concurrency_window` |
@@ -106,7 +106,7 @@ Nothing else. Do **not** edit `session-log/tasks.csv` (the orchestrator writes t
 - **Size basis (250 lines):** about 80 lines of code, about 18 tests at about 8 lines each with a shared fixture helper.
 
 ## Log (filled in by the builder and verifier)
-- Start / end:
-- Checks run (command and real output):
+- Start / end: 2026-10-17 10:07 - 10:10 CEST (builder). Attempt 2 (verifier nits: OverflowError, zero builders prints 0, builder spans by type, merged tests, spec example fixed). Diff vs 2cdb273: 293 changed lines (280 insertions, 13 deletions) vs limit 250; tests 179+ of them. Over the limit, goes to the human. Attempt 3 (CI timezone): test_window_crosses_midnight now builds its fixture in local time; tests pass under TZ=UTC, America/Los_Angeles, Europe/Berlin.
+- Checks run (command and real output): `uv run python scripts/check.py` -> ruff check OK, ruff format OK, mypy OK, 263 passed, agent layer OK, ALL CHECKS PASSED. Real run: `max concurrent subagents: 5 (2026-10-17 10:07-10:08)`, `max concurrent builders: 3 (2026-10-17 10:06-10:07)`
 - Verifier verdict and findings:
 - Human review (minutes, notes):

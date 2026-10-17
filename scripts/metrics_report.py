@@ -4,22 +4,29 @@
 Usage:  uv run python scripts/metrics_report.py                      # full report
         uv run python scripts/metrics_report.py --active FROM TO     # human active minutes in a window
                                                                      # (ISO times, e.g. 2026-10-16T10:00)
+        uv run python scripts/metrics_report.py --transcripts DIR    # Claude Code project transcript dir
 Definitions are in METRICS.md. Stdlib only, read-only.
 
 Active minutes: sum of gaps between consecutive human events (UserPromptSubmit),
 each gap capped at ACTIVE_GAP_CAP_MIN. Speed only counts if the quality numbers stay flat or improve.
+
+Concurrent subagents: each subagent transcript is split into active intervals; a gap greater than
+SUBAGENT_IDLE_GAP_MIN starts a new one, so resumed agents do not inflate the count. Only agent types,
+counts and times are read or printed, never descriptions, branches or content.
+Constants: ACTIVE_GAP_CAP_MIN, SUBAGENT_IDLE_GAP_MIN, CLAUDE_PROJECTS.
 """
 
 import argparse
 import csv
 import json
+import re
 import statistics
 import subprocess
 import sys
 from collections import defaultdict
 from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -27,6 +34,9 @@ TASKS_CSV = ROOT / "session-log" / "tasks.csv"
 EVENTS_JSONL = ROOT / "session-log" / "events.jsonl"
 COVERAGE_JSON = ROOT / "coverage.json"
 ACTIVE_GAP_CAP_MIN = 10
+SUBAGENT_IDLE_GAP_MIN = 5  # a gap greater than this starts a new active interval of a subagent
+CLAUDE_PROJECTS = Path.home() / ".claude" / "projects"
+BUILDER_TYPE = "builder"
 HUMAN_EVENTS = {"UserPromptSubmit"}
 ESCAPED_DEFECT_TYPE = "escaped-defect"  # tasks.csv `type` for a bug found after merge
 FLAT_RANGE_RATIO = 0.15  # weekly series whose range is under 15% of its mean counts as flat
@@ -82,17 +92,44 @@ def percentile(xs: Sequence[float], p: float) -> float | None:
     return s[lo] + (s[hi] - s[lo]) * (k - lo)
 
 
-def max_parallel_sessions(spans: dict[str, tuple[datetime, datetime]]) -> int:
+def max_overlap(spans: dict[str, tuple[datetime, datetime]]) -> tuple[int, datetime | None, datetime | None]:
+    """Max concurrent spans and the window from when the max is first reached to the next change."""
     # At the same instant: ends of real spans (0), then starts (1), then ends of zero-length spans (2),
     # so touching sessions do not overlap but a session whose events share one second still counts.
     points: list[tuple[datetime, int, int]] = []
     for start, end in spans.values():
         points += [(start, 1, 1), (end, 2 if end == start else 0, -1)]
+    points.sort(key=lambda p: (p[0], p[1]))
     best = cur = 0
-    for _, _, delta in sorted(points, key=lambda p: (p[0], p[1])):
+    window: tuple[datetime | None, datetime | None] = (None, None)
+    for i, (when, _, delta) in enumerate(points):
         cur += delta
-        best = max(best, cur)
-    return best
+        if cur > best:
+            best, window = cur, (when, points[i + 1][0])
+    return best, window[0], window[1]
+
+
+def max_parallel_sessions(spans: dict[str, tuple[datetime, datetime]]) -> int:
+    return max_overlap(spans)[0]
+
+
+def active_intervals(times: list[datetime], gap_min: float = SUBAGENT_IDLE_GAP_MIN) -> list[tuple[datetime, datetime]]:
+    out: list[tuple[datetime, datetime]] = []
+    for ts in sorted(times):
+        if out and ts - out[-1][1] <= timedelta(minutes=gap_min):
+            out[-1] = (out[-1][0], ts)
+        else:
+            out.append((ts, ts))
+    return out
+
+
+def subagent_concurrency(agents: list[tuple[str, list[datetime]]]) -> dict:
+    spans = {f"{i}#{j}": iv for i, (_, ts) in enumerate(agents) for j, iv in enumerate(active_intervals(ts))}
+    only = [(i, ts) for i, (kind, ts) in enumerate(agents) if kind == BUILDER_TYPE]
+    builders = {f"{i}#{j}": iv for i, ts in only for j, iv in enumerate(active_intervals(ts))}
+    n, a, b = max_overlap(spans)
+    m, c, d = max_overlap(builders)
+    return {"max": n, "window": (a, b), "builders_max": m, "builders_window": (c, d)}
 
 
 def _pct(part: int, whole: int) -> float | None:
@@ -190,7 +227,7 @@ def load_events(path: Path) -> list[dict]:
             e = json.loads(line)
             e["ts"] = datetime.fromisoformat(e["timestamp"]).astimezone()
             out.append(e)
-        except (ValueError, KeyError, TypeError):
+        except (ValueError, KeyError, TypeError, OverflowError):
             continue  # a corrupt line must not hide the rest of the log
     return out
 
@@ -210,6 +247,43 @@ def human_times(events: list[dict], start: datetime | None = None, end: datetime
         for e in events
         if e.get("event") in HUMAN_EVENTS and (start is None or e["ts"] >= start) and (end is None or e["ts"] <= end)
     ]
+
+
+def project_slug(path: str) -> str:
+    return re.sub(r"[^A-Za-z0-9]", "-", path)
+
+
+def default_transcripts_dir() -> Path:
+    return CLAUDE_PROJECTS / project_slug(str(ROOT))
+
+
+def _agent_type(meta: Path) -> str:
+    try:
+        value = json.loads(meta.read_text(encoding="utf-8", errors="replace")).get("agentType")
+    except (OSError, ValueError, AttributeError):
+        return "unknown"
+    return value if isinstance(value, str) else "unknown"
+
+
+def load_subagents(project_dir: Path) -> list[tuple[str, list[datetime]]]:
+    """(agent_type, timestamps) per subagent transcript. Reads only `timestamp`, keeps no content."""
+    if not project_dir.is_dir():
+        return []
+    out: list[tuple[str, list[datetime]]] = []
+    for f in sorted(project_dir.glob("*/subagents/agent-*.jsonl")):
+        stamps: list[datetime] = []
+        try:
+            with f.open(encoding="utf-8", errors="replace") as fh:
+                for line in fh:
+                    try:
+                        stamps.append(datetime.fromisoformat(json.loads(line)["timestamp"]).astimezone())
+                    except (ValueError, KeyError, TypeError, AttributeError, OverflowError):
+                        continue  # corrupt or half-written line
+        except OSError:
+            continue
+        if stamps:
+            out.append((_agent_type(f.with_suffix(".meta.json")), stamps))
+    return out
 
 
 def main_commits_per_week(repo: Path) -> dict[str, int]:
@@ -253,7 +327,19 @@ def week_of(t: Task) -> str:
     return f"{y}-W{w:02d}"
 
 
-def report(tasks: list[Task], events: list[dict], repo: Path) -> str:
+def _count_window(n: int, window: tuple[datetime | None, datetime | None]) -> str:
+    a, b = window
+    if a is None or b is None:
+        return str(n)  # no span at all: a plain 0
+    a, b = a.astimezone(), b.astimezone()
+    end = b.strftime("%H:%M") if a.date() == b.date() else b.strftime("%Y-%m-%d %H:%M")
+    return f"{n} ({a.strftime('%Y-%m-%d %H:%M')}-{end})"
+
+
+def report(tasks: list[Task], events: list[dict], repo: Path, subagents: list | None = None) -> str:
+    conc = subagent_concurrency(subagents) if subagents else None
+    sub_line = _count_window(conc["max"], conc["window"]) if conc else "n/a"
+    bld_line = _count_window(conc["builders_max"], conc["builders_window"]) if conc else "n/a"
     s = summarize(tasks)
     agent = [t for t in tasks if t.method == "agent"]
     days = sorted({t.date for t in agent})
@@ -266,6 +352,8 @@ def report(tasks: list[Task], events: list[dict], repo: Path) -> str:
         f"tasks merged per active day: {_fmt(len(agent) / len(days) if days else None)}",
         f"lead time median / p90: {_fmt(s['lead_time_median_min'], ' min')} / {_fmt(s['lead_time_p90_min'], ' min')}",
         f"max parallel sessions: {max_parallel_sessions(session_spans(events))}",
+        f"max concurrent subagents: {sub_line}",
+        f"max concurrent builders: {bld_line}",
         "",
         "## Human time and leverage",
         f"active minutes per task (median): {_fmt(s['active_minutes_median'])}",
@@ -304,13 +392,15 @@ def report(tasks: list[Task], events: list[dict], repo: Path) -> str:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--active", nargs=2, metavar=("FROM", "TO"), help="human active minutes between two ISO times")
+    ap.add_argument("--transcripts", type=Path, default=None, help="Claude Code project transcript dir")
     a = ap.parse_args()
     events = load_events(EVENTS_JSONL)
     if a.active:
         start, end = (datetime.fromisoformat(x).astimezone() for x in a.active)
         print(f"{active_minutes(human_times(events, start, end)):.0f}")
         return 0
-    print(report(load_tasks(TASKS_CSV), events, ROOT))
+    subagents = load_subagents(a.transcripts or default_transcripts_dir())
+    print(report(load_tasks(TASKS_CSV), events, ROOT, subagents))
     return 0
 
 
