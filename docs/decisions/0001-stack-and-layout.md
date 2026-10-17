@@ -16,7 +16,9 @@ Agents Workbench (local folder `ENV_AGENTS`) is a git repo holding a copy of the
 - `work-environment-repo` has no `.git` directory; `~/.claude/skills/bootstrap` is a symlink into it (Phase 0, docs/bootstrap-plan.md §1).
 - `diff -rq` between the reference and `skills/bootstrap/` showed no differences after the copy.
 - `scripts/git_metrics.py` was reformatted by `ruff format` during setup. Comparing `ast.dump` of the original and the copy gave `AST identical (formatting only): True`, so its behavior is unchanged.
+- Note (2026-10-17): after T-007, `scripts/git_metrics.py` differs from the reference design in behavior, not only formatting. T-007 fixes four bugs pinned by T-003: `--author` matches email too, merges come from all refs, the stash is excluded, and an empty repo no longer crashes. Merges also follow `--author`. The AST comparison above holds only for the version before T-007. T-010 checks whether the fixes moved any number in `docs/baseline.md`.
 
 ## assumptions
 - I re-point `~/.claude/skills/bootstrap` to this repo by hand; until then the two copies can drift.
 - Python ≥ 3.12 is available where the scripts run. Revisit if a project pins an older Python.
+- The reference design's `git_metrics.py` still has the bugs T-007 fixed. Projects bootstrapped from it get the fix only when the human runs `scripts/install.py` again, which copies this repo's version.
