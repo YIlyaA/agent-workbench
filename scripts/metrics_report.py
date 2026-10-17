@@ -322,6 +322,23 @@ def _fmt(x: object, unit: str = "") -> str:
     return f"{x}{unit}"
 
 
+def week_hours(tasks: list[Task], event_minutes: float) -> tuple[float, str]:
+    """Human hours for a week: manual minutes if every task has them, else the event log's active minutes.
+
+    Sources are never mixed: per-task manual minutes and week-wide event minutes would double count.
+    """
+    if not tasks:
+        return 0.0, "n/a"
+    if all(t.my_active_minutes > 0 for t in tasks):
+        return sum(t.my_active_minutes for t in tasks) / 60, "manual"
+    return event_minutes / 60, "event log"
+
+
+def iso_week(ts: datetime) -> str:
+    y, w, _ = ts.isocalendar()
+    return f"{y}-W{w:02d}"
+
+
 def week_of(t: Task) -> str:
     y, w, _ = datetime.fromisoformat(t.date).isocalendar()
     return f"{y}-W{w:02d}"
@@ -370,21 +387,24 @@ def report(tasks: list[Task], events: list[dict], repo: Path, subagents: list | 
         f"test coverage (coverage.json): {_fmt(coverage_pct(COVERAGE_JSON), '%')}",
         "",
         "## Weekly trend",
-        "| week | agent tasks | active h | tasks per active h | change vs last week | merges to main |",
-        "|---|---:|---:|---:|---:|---:|",
+        "| week | agent tasks | active h | hours source | tasks per active h | change vs last week | merges to main |",
+        "|---|---:|---:|---|---:|---:|---:|",
     ]
     by_week: dict[str, list[Task]] = defaultdict(list)
     for t in agent:
         by_week[week_of(t)].append(t)
+    human_by_week: dict[str, list[datetime]] = defaultdict(list)
+    for ts_ in human_times(events):
+        human_by_week[iso_week(ts_)].append(ts_)
     deploys = main_commits_per_week(repo)
     series: list[float] = []
     for wk in sorted(set(by_week) | set(deploys)):
         ts = by_week.get(wk, [])
-        hours = sum(t.my_active_minutes for t in ts) / 60
+        hours, source = week_hours(ts, active_minutes(human_by_week.get(wk, [])))
         rate = len(ts) / hours if hours else 0.0
         change = f"{(rate / series[-1] - 1) * 100:+.0f}%" if series and series[-1] else "n/a"
         series.append(rate)
-        out.append(f"| {wk} | {len(ts)} | {hours:.1f} | {rate:.2f} | {change} | {deploys.get(wk, 0)} |")
+        out.append(f"| {wk} | {len(ts)} | {hours:.1f} | {source} | {rate:.2f} | {change} | {deploys.get(wk, 0)} |")
     out += ["", f"curve shape: {curve_shape(series)}", "", "Baseline: docs/baseline.md. Definitions: METRICS.md."]
     return "\n".join(out)
 

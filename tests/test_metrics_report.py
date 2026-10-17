@@ -337,3 +337,32 @@ def test_report_prints_no_content(tmp_path) -> None:
     day = local(t(10, 0), "%Y-%m-%d")
     assert f"max concurrent subagents: 1 ({day} {local(t(10, 0))}-{local(t(10, 1))})" in out
     assert not any(s in out for s in SECRETS)
+
+
+def test_week_hours_manual_when_all_tasks_have_minutes() -> None:
+    from scripts.metrics_report import week_hours
+
+    assert week_hours([task(my_active_minutes=30), task(my_active_minutes=90)], event_minutes=500) == (2.0, "manual")
+
+
+@pytest.mark.parametrize("manual", [0.0, 0])
+def test_week_hours_falls_back_to_event_log(manual: float) -> None:
+    from scripts.metrics_report import week_hours
+
+    tasks = [task(my_active_minutes=40), task(my_active_minutes=manual)]
+    assert week_hours(tasks, event_minutes=120) == (2.0, "event log")
+
+
+def test_week_hours_no_tasks() -> None:
+    from scripts.metrics_report import week_hours
+
+    assert week_hours([], event_minutes=60) == (0.0, "n/a")
+
+
+def test_report_rate_uses_event_log_and_names_source() -> None:
+    from scripts.metrics_report import report
+
+    ev = [{"ts": t(10, m), "event": "UserPromptSubmit", "session_id": "s"} for m in (0, 5, 10, 15, 20, 25)]
+    out = report([task(my_active_minutes=0), task(my_active_minutes=0)], ev, Path("/nonexistent"))
+    row = next(line for line in out.splitlines() if line.startswith("| 2026-W42"))
+    assert "| event log |" in row and "| 0.4 |" in row and "| 4.80 |" in row
