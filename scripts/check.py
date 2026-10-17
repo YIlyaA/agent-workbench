@@ -16,6 +16,7 @@ CHECKS = [
     ("mypy", [PY, "-m", "mypy"]),
     ("pytest", [PY, "-m", "pytest"]),
     ("agent layer", [PY, "scripts/validate_agent_layer.py"]),
+    ("diff limit", [PY, "scripts/check_diff_limit.py"]),
 ]
 
 
