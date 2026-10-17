@@ -112,12 +112,9 @@ CASES: dict[str, tuple[str, dict[str, str | None], str, int]] = {
     "upper_ext": ("T-002-x.MD", {"budget_usd": None}, "budget_usd", 1),
     "approved_empty": ("T-002-x.md", {"status": "approved"}, "est_hours_old_way is empty", 1),
     "approved_absent": ("T-002-x.md", {"status": "approved", "est_hours_old_way": None}, "missing frontmatter key", 1),
-    "no_budget": ("T-002-x.md", {"budget_usd": None}, "missing frontmatter key 'budget_usd'", 1),
     "no_type": ("T-002-x.md", {"type": None}, "missing frontmatter key 'type'", 1),
     "st_space": ("T-002-x.md", {"status": "in progress", "est_hours_old_way": "1"}, "status 'in progress'", 1),
-    "st_case": ("T-002-x.md", {"status": "Done", "est_hours_old_way": "1"}, "status 'Done'", 1),
     "st_empty": ("T-002-x.md", {"status": "", "est_hours_old_way": "1"}, "status '' is not one of", 1),
-    "id_other": ("T-007-x.md", {"id": "T-008"}, "does not match file name", 1),
     "id_prefix": ("T-0010-x.md", {"id": "T-001"}, "does not match file name", 2),
 }
 

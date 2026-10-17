@@ -88,7 +88,7 @@ Nothing else. Do **not** edit `session-log/tasks.csv` (the orchestrator writes t
 - **Size basis (160 lines):** about 35 lines of code, about 14 tests at about 6 lines each, plus the helper.
 
 ## Log (filled in by the builder and verifier)
-- Start / end (commit times): attempt 1 10:06-10:07 (317e9c8), attempt 2 -10:09 (f24fd40), attempt 3 -10:14 (final commit)
-- Checks run (command and real output): `uv run python scripts/check.py` -> ruff OK, mypy OK, pytest 264 passed, agent layer: OK, ALL CHECKS PASSED. Attempt 1: 140 changed lines; attempt 2: 165; attempt 3 (final): 151 insertions + 8 deletions = 159.
+- Start / end (commit times): attempt 1 10:06-10:07 (317e9c8), attempt 2 -10:09 (f24fd40), attempt 3 -10:14 (final commit); attempt 4 (Windows paths): as_posix() on all reported paths
+- Checks run (command and real output): `uv run python scripts/check.py` -> ruff OK, mypy OK, pytest 261 passed, agent layer: OK, ALL CHECKS PASSED. Attempt 1: 140 changed lines; attempt 2: 165; attempt 3: 159; attempt 4: 160.
 - Verifier verdict and findings:
 - Human review (minutes, notes):

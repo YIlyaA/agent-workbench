@@ -52,7 +52,7 @@ def _read(path: Path) -> str | None:
 
 
 def _check_keys(path: Path, root: Path, required: tuple[str, ...]) -> list[str]:
-    rel = path.relative_to(root)
+    rel = path.relative_to(root).as_posix()
     text = _read(path)
     if text is None:
         return [f"{rel}: not valid UTF-8"]
@@ -64,7 +64,7 @@ def _check_keys(path: Path, root: Path, required: tuple[str, ...]) -> list[str]:
 
 def _check_task(path: Path, root: Path, ids: dict[str, Path]) -> list[str]:
     """Rules for one real task file. A UTF-8 BOM makes the block unrecognised: reported, not silent."""
-    rel = path.relative_to(root)
+    rel = path.relative_to(root).as_posix()
     errors = _check_keys(path, root, REQUIRED_TASK_KEYS)
     fm = parse_frontmatter(_read(path) or "")
     if fm is None:
@@ -83,7 +83,7 @@ def _check_task(path: Path, root: Path, ids: dict[str, Path]) -> list[str]:
         if path.stem != tid and not path.stem.startswith(tid + "-"):
             errors.append(f"{rel}: id '{tid}' does not match file name")
         if tid in ids:
-            errors.append(f"{rel}: duplicate id '{tid}' also in {ids[tid].relative_to(root)}")
+            errors.append(f"{rel}: duplicate id '{tid}' also in {ids[tid].relative_to(root).as_posix()}")
         ids[tid] = path
     return errors
 
@@ -98,7 +98,7 @@ def validate(root: Path) -> list[str]:
         errors += _check_keys(skill, root, REQUIRED_SKILL_KEYS)
         fm = parse_frontmatter(_read(skill) or "") or {}
         if fm.get("name") and fm["name"] != skill.parent.name:
-            errors.append(f"{skill.relative_to(root)}: name '{fm['name']}' does not match folder '{skill.parent.name}'")
+            errors.append(f"{skill.relative_to(root).as_posix()}: name '{fm['name']}' does not match its folder")
 
     template = root / "tasks/_template.md"
     if template.exists():
