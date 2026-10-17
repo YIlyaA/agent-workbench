@@ -1,6 +1,6 @@
 ---
 id: T-006
-status: ready-for-review # draft | approved | in-progress | ready-for-review | done | rejected
+status: done          # draft | approved | in-progress | ready-for-review | done | rejected
 risk: low                # read-only on ~/.claude/projects transcripts; prints counts and times only
 autonomy: L2             # L0 observe | L1 recommend | L2 approve-to-execute | L3 guardrailed auto
 type: metrics            # feature | bugfix | docs | skill | metrics | research
@@ -110,3 +110,4 @@ Nothing else. Do **not** edit `session-log/tasks.csv` (the orchestrator writes t
 - Checks run (command and real output): `uv run python scripts/check.py` -> ruff check OK, ruff format OK, mypy OK, 263 passed, agent layer OK, ALL CHECKS PASSED. Real run: `max concurrent subagents: 5 (2026-10-17 10:07-10:08)`, `max concurrent builders: 3 (2026-10-17 10:06-10:07)`
 - Verifier verdict and findings:
 - Human review (minutes, notes):
+- Release (2026-10-17): PR #12 squash-merged by the human on batch approval. Verification: verifier PASS WITH NITS 5, PASS WITH NITS 3; then a CI failure on all OSes (timezone-dependent test), fixed. **Final verdict: PASS WITH NITS**, review_findings 9. Diff 294/250 (over; accepted by the human's merge approval). Known nits: diff over the limit; load_events also skips extreme timestamps (unrequested, stricter). my_active_minutes 0: the human merged on batch approval without reviewing line by line.

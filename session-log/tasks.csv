@@ -1,3 +1,7 @@
 id,date,type,method,est_hours_old_way,my_active_minutes,agent_runtime_minutes,start,end,tests_green,review_findings,rolled_back,outcome
 T-001,2026-10-16,bugfix,agent,3,41,41,13:47,14:36,no,13,no,"git guardrail hook no longer blocks safe push+PR chains or quoted heredocs to files; every command the old hook blocked is still blocked"
 T-002,2026-10-16,metrics,agent,5,12,23,21:13,21:42,no,14,no,"historic task baseline script; first calibration shows planner estimates ~10x commit-visible time, so the estimate-based multiplier is dropped as a headline"
+T-003,2026-10-17,tests,agent,1.5,0,24,10:06,12:46,no,13,no,"git_metrics.py has characterization tests on an isolated temp repo; 3 bugs pinned as strict xfail for T-007"
+T-004,2026-10-17,feature,agent,1,0,22,10:06,12:40,no,15,no,"every task file is validated (keys, status, estimate, id, duplicates, UTF-8, OS-independent names)"
+T-005,2026-10-17,bugfix,agent,0.5,0,2,10:06,12:36,yes,0,no,"install.py backups never collide or overwrite each other"
+T-006,2026-10-17,metrics,agent,2,0,10,10:07,12:47,no,9,no,"metrics report shows max concurrent subagents and builders from subagent transcripts"

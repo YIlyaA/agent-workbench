@@ -1,6 +1,6 @@
 ---
 id: T-005
-status: ready-for-review # draft | approved | in-progress | ready-for-review | done | rejected
+status: done          # draft | approved | in-progress | ready-for-review | done | rejected
 risk: low                # installer code, but tests touch only tmp_path; no run against the real home
 autonomy: L2             # L0 observe | L1 recommend | L2 approve-to-execute | L3 guardrailed auto
 type: bugfix             # feature | bugfix | docs | skill | metrics | research
@@ -78,3 +78,4 @@ Nothing else. Do **not** edit `session-log/tasks.csv` (the orchestrator writes t
 - Checks run (command and real output): `uv run python scripts/check.py` -> ruff ok, format ok, mypy ok, 251 passed, agent layer OK, ALL CHECKS PASSED
 - Verifier verdict and findings:
 - Human review (minutes, notes):
+- Release (2026-10-17): PR #11 squash-merged by the human on batch approval. Verification: verifier PASS, 0 findings, first try. **Final verdict: PASS**, review_findings 0. Diff 95/120. Known nits: none. my_active_minutes 0: the human merged on batch approval without reviewing line by line.
