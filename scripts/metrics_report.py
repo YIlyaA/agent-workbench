@@ -330,7 +330,7 @@ def week_of(t: Task) -> str:
 def _count_window(n: int, window: tuple[datetime | None, datetime | None]) -> str:
     a, b = window
     if a is None or b is None:
-        return "n/a"
+        return str(n)  # no span at all: a plain 0
     a, b = a.astimezone(), b.astimezone()
     end = b.strftime("%H:%M") if a.date() == b.date() else b.strftime("%Y-%m-%d %H:%M")
     return f"{n} ({a.strftime('%Y-%m-%d %H:%M')}-{end})"
@@ -339,8 +339,7 @@ def _count_window(n: int, window: tuple[datetime | None, datetime | None]) -> st
 def report(tasks: list[Task], events: list[dict], repo: Path, subagents: list | None = None) -> str:
     conc = subagent_concurrency(subagents) if subagents else None
     sub_line = _count_window(conc["max"], conc["window"]) if conc else "n/a"
-    bld_line = _count_window(conc["builders_max"], conc["builders_window"]) if conc and conc["builders_max"] else "0"
-    bld_line = bld_line if conc else "n/a"
+    bld_line = _count_window(conc["builders_max"], conc["builders_window"]) if conc else "n/a"
     s = summarize(tasks)
     agent = [t for t in tasks if t.method == "agent"]
     days = sorted({t.date for t in agent})

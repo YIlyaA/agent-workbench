@@ -251,15 +251,8 @@ def test_subagents_empty_dir(tmp_path) -> None:
 
 
 def test_subagents_corrupt_lines(tmp_path) -> None:
-    bad = [
-        "not json",
-        "[]",
-        '{"timestamp": 5}',
-        '{"timestamp": "yesterday"}',
-        "{}",
-        '{"timestamp": "2026-10-16T10:0',
-        '{"timestamp": "0001-01-01T00:00:00+05:00"}',
-    ]
+    bad = ["not json", "[]", '{"timestamp": 5}', '{"timestamp": "yesterday"}', "{}", '{"timestamp": "2026-10-16T10:0']
+    bad.append('{"timestamp": "0001-01-01T00:00:00+05:00"}')
     agent(tmp_path, "s", "a1", "builder", [t(10, 0), t(10, 3)], extra_lines=bad)
     agent(tmp_path, "s", "a2", "builder", [], extra_lines=bad)
     agent(tmp_path, "s", "a3", "builder", [])
