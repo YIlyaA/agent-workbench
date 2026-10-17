@@ -1,6 +1,6 @@
 ---
 id: T-008
-status: in-progress         # draft | approved | in-progress | ready-for-review | done | rejected
+status: ready-for-review         # draft | approved | in-progress | ready-for-review | done | rejected
 risk: low                # new read-only script; turns over-limit branches red in check.py (intended)
 autonomy: L2             # L0 observe | L1 recommend | L2 approve-to-execute | L3 guardrailed auto
 type: feature            # feature | bugfix | docs | skill | metrics | research
@@ -107,6 +107,7 @@ Flow: [docs/diagrams/diff-limit-check.md](../docs/diagrams/diff-limit-check.md).
 - Failing tests before the code (first line): ModuleNotFoundError: scripts.check_diff_limit (round 1); round 2 (verifier fixes): 6 failed (rename bypass, base limit non-integer, 3 odd untracked entries, cp1252 output)
 - Checks run: uv run python scripts/check.py, round 2: 351 passed, 3 xfailed; agent layer OK; `diff limit: 399/350 lines (tests 231; base 8562980; task file excluded)` then FAILED: diff limit
 - Diff size: 399 (tests 231, script 167, check.py 1) vs limit 350. HARD STOP, not trimmed; human decides.
+- Limit raised to 400 by the human (PR #19); step now passes at 399/400.
 - Verifier verdict and findings:
 - Human review (minutes, notes):
 
