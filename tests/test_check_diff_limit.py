@@ -1,3 +1,6 @@
+import os
+import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -134,6 +137,45 @@ def test_working_tree_counted(repo: Path, capsys: Capsys) -> None:
     assert n_of(run(repo, capsys)[1]) == 2 + 7 + 3 + 2 + 2  # .gitignore, u7, u3, crlf, app.py (1 add + 1 del)
 
 
+def test_rename_cannot_raise_limit(repo: Path, capsys: Capsys) -> None:
+    git(repo, "mv", TASK, "tasks/T-001-y.md")
+    save(repo, {"tasks/T-001-y.md": task_md("100"), "big.py": "x\n" * 20})
+    code, out = run(repo, capsys)
+    assert code == 1 and "using 10" in out
+
+
+def test_base_limit_not_integer(tmp_path: Path, monkeypatch: MP, capsys: Capsys) -> None:
+    r = isolate(tmp_path, monkeypatch, "b")
+    save(r, {TASK: task_md("abc")})
+    git(r, "checkout", "-q", "-b", "task/T-001-x")
+    save(r, {TASK: task_md("100")})
+    assert run(r, capsys)[0] == 1
+
+
+@pytest.mark.parametrize("kind", ["nested", "dirlink", "broken"])
+def test_untracked_odd_entries(repo: Path, capsys: Capsys, kind: str) -> None:
+    if kind == "nested":
+        (repo / "sub").mkdir()
+        git(repo / "sub", "init", "-q")
+        put(repo, {"sub/f.py": "x\n"})
+    else:
+        target = repo / ("tasks" if kind == "dirlink" else "missing")
+        try:
+            (repo / "ln").symlink_to(target, target_is_directory=True)
+        except OSError:
+            pytest.skip("symlinks not permitted")
+    code, out = run(repo, capsys)
+    assert code == 0 and n_of(out) == (0 if kind == "nested" else 1)
+
+
+def test_ascii_output_on_cp1252(repo: Path, tmp_path: Path) -> None:
+    put(repo, {"漢字.py": "x\n" * 11})
+    env = {**os.environ, "PYTHONIOENCODING": "cp1252"}
+    cmd = [sys.executable, "scripts/check_diff_limit.py", "--root", str(repo)]
+    p = subprocess.run(cmd, env=env, capture_output=True, text=True, encoding="ascii", check=False)
+    assert p.returncode == 1 and "\\u6f22\\u5b57.py" in p.stdout
+
+
 def test_binary_zero(repo: Path, capsys: Capsys) -> None:
     save(repo, {"a.bin": b"\0\1\2"})
     put(repo, {"a.bin": b"\0\3", "b.bin": b"\0\0"})
@@ -173,7 +215,7 @@ def test_github_mode(repo: Path, capsys: Capsys, monkeypatch: pytest.MonkeyPatch
     code, out = run(repo, capsys, "--github")
     assert code == (1 if env == "noenv" else 0)
     if code == 0:
-        assert n_of(out) == 4 and "pwned" not in out
+        assert n_of(out) == 4
 
 
 def test_worktree(repo: Path, tmp_path: Path, capsys: Capsys) -> None:

@@ -104,9 +104,9 @@ Flow: [docs/diagrams/diff-limit-check.md](../docs/diagrams/diff-limit-check.md).
 
 ## Log (filled in by the builder and verifier)
 - Start / end: 13:08 / stopped 13:11 at 340/300 (hard stop, not trimmed)
-- Failing tests before the code (first line):
-- Checks run (command and real output, including the `diff limit:` line):
-- Diff size: 340 (tests 189, script 150, check.py 1) vs limit 300. Stopped; human decides (fallback: split --github).
+- Failing tests before the code (first line): ModuleNotFoundError: scripts.check_diff_limit (round 1); round 2 (verifier fixes): 6 failed (rename bypass, base limit non-integer, 3 odd untracked entries, cp1252 output)
+- Checks run: uv run python scripts/check.py, round 2: 351 passed, 3 xfailed; agent layer OK; `diff limit: 399/350 lines (tests 231; base 8562980; task file excluded)` then FAILED: diff limit
+- Diff size: 399 (tests 231, script 167, check.py 1) vs limit 350. HARD STOP, not trimmed; human decides.
 - Verifier verdict and findings:
 - Human review (minutes, notes):
 

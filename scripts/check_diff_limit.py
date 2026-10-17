@@ -83,30 +83,47 @@ def resolve_refs(args: argparse.Namespace, root: Path) -> tuple[str, str]:
     return args.branch or git(root, "rev-parse", "--abbrev-ref", "HEAD").strip(), args.base
 
 
-def effective_limit(root: Path, mb: str, rel: str, limit: int) -> int:
-    try:
-        old = read_limit(git(root, "show", f"{mb}:{rel}"))
-    except Stop:
+def effective_limit(root: Path, mb: str, tid: str, limit: int) -> int:
+    """The base version of the task (found by id, so a rename cannot hide it) caps a raised limit."""
+    names = git(root, "ls-tree", "--name-only", "-z", mb, "tasks/").split("\0")
+    base = [n for n in names if re.fullmatch(rf"tasks/{tid}(-[^/]*)?\.md", n)]
+    if not base:
         print("limit source: branch")
         return limit
-    if old is not None and old < limit:
+    if len(base) > 1:
+        raise Stop(f"{len(base)} task files for {tid} at the merge-base: {base}")
+    old = read_limit(git(root, "show", f"{mb}:{base[0]}"))
+    if old is None:
+        raise Stop(f"{base[0]} at the merge-base: diff_limit_lines must be a non-negative integer")
+    if old < limit:
         print(f"note: limit raised on this branch ({limit} -> {old}); using {old}")
         return old
     return limit
+
+
+def say(text: str) -> None:
+    """Print ASCII only (Windows consoles can be cp1252): escape anything else, line by line."""
+    print("\n".join(ascii(line)[1:-1] for line in text.splitlines()))
+
+
+def line_count(path: Path) -> int:
+    if path.is_symlink():  # git stores a link as one line; never follow it (dir or broken)
+        return 1
+    return count_untracked(path.read_bytes()) if path.is_file() else 0  # nested repos list as dirs
 
 
 def count_lines(root: Path, mb: str) -> list[tuple[int, str]]:
     rows = parse_numstat_z(git(root, "diff", "--numstat", "-z", "-M", mb))
     for name in git(root, "ls-files", "--others", "--exclude-standard", "-z").split("\0"):
         if name:
-            rows.append((count_untracked((root / name).read_bytes()), name))
+            rows.append((line_count(root / name), name))
     return rows
 
 
 def check(args: argparse.Namespace, root: Path) -> int:
     branch, base = resolve_refs(args, root)
     if not branch.startswith("task/"):
-        print(f"diff limit: skip (not on a task branch: {branch})")
+        say(f"diff limit: skip (not on a task branch: {branch})")
         return 0
     tid = task_id(branch)
     if tid is None:
@@ -120,14 +137,14 @@ def check(args: argparse.Namespace, root: Path) -> int:
     except Stop as e:
         raise Stop(f"{e}\n{NO_BASE_HINT}") from e
     rel = f"tasks/{tfile.name}"
-    limit = effective_limit(root, mb, rel, limit)
+    limit = effective_limit(root, mb, tid, limit)
     rows = sorted((r for r in count_lines(root, mb) if r[1] != rel), reverse=True)
     total, tests = sum(n for n, _ in rows), sum(n for n, p in rows if TEST.search(p))
     print(f"diff limit: {total}/{limit} lines (tests {tests}; base {mb[:7]}; task file excluded)")
     if total <= limit:
         return 0
     for n, path in rows[:TOP_FILES]:
-        print(f"  {n}  {path}")
+        say(f"  {n}  {path}")
     print("Over the limit: stop and report. Do not trim tests, join lines or add lint suppressions to fit (AGENTS.md).")
     return 1
 
@@ -135,14 +152,14 @@ def check(args: argparse.Namespace, root: Path) -> int:
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--root", type=Path, default=Path(__file__).resolve().parent.parent)
-    ap.add_argument("--branch")
+    ap.add_argument("--branch", help="selects the task id only; lines are always counted from HEAD")
     ap.add_argument("--base", default=DEFAULT_BASE)
     ap.add_argument("--github", action="store_true")
     args = ap.parse_args(argv)
     try:
         return check(args, args.root)
     except Stop as e:
-        print(f"diff limit: ERROR {e}")
+        say(f"diff limit: ERROR {e}")
         return 1
 
 
