@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from scripts.validate_agent_layer import REQUIRED_TASK_KEYS, parse_frontmatter, validate
+from scripts.validate_agent_layer import REQUIRED_TASK_KEYS, TASK_STATUSES, parse_frontmatter, validate
 
 REPO = Path(__file__).resolve().parent.parent
 
@@ -10,7 +10,16 @@ REPO = Path(__file__).resolve().parent.parent
 def write(root: Path, rel: str, text: str) -> None:
     p = root / rel
     p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(text)
+    p.write_text(text, encoding="utf-8")
+
+
+def task_file(root: Path, name: str, **overrides: str | None) -> None:
+    """Write a valid draft task file; an override of None drops that key."""
+    fields: dict[str, str | None] = {k: "x" for k in REQUIRED_TASK_KEYS}
+    fields.update(id=name[:5], status="draft", est_hours_old_way="")
+    fields.update(overrides)
+    body = "".join(f"{k}: {v}\n" for k, v in fields.items() if v is not None)
+    write(root, f"tasks/{name}", f"---\n{body}---\n# body \u00d7 \u2192\n")
 
 
 def minimal_layer(root: Path) -> None:
@@ -20,6 +29,7 @@ def minimal_layer(root: Path) -> None:
     write(root, ".claude/skills/plan-task/SKILL.md", "---\nname: plan-task\ndescription: d\n---\nbody\n")
     keys = "".join(f"{k}: x\n" for k in REQUIRED_TASK_KEYS)
     write(root, "tasks/_template.md", f"---\n{keys}---\n# t\n")
+    task_file(root, "T-001-x.md")
     write(root, "AGENTS.md", "See [context](CONTEXT.md).\n")
     write(root, "CONTEXT.md", "ctx\n")
 
@@ -73,6 +83,92 @@ def test_empty_root_reports_missing_files(tmp_path: Path) -> None:
     errors = validate(tmp_path)
     assert any("AGENTS.md" in e for e in errors)
     assert any("_template.md" in e for e in errors)
+
+
+def errs(root: Path, name: str) -> list[str]:
+    return [e for e in validate(root) if name in e]
+
+
+def test_task_statuses_match_template() -> None:
+    assert TASK_STATUSES == ("draft", "approved", "in-progress", "ready-for-review", "done", "rejected")
+
+
+def test_task_draft_empty_estimate_ok(tmp_path: Path) -> None:
+    minimal_layer(tmp_path)
+    task_file(tmp_path, "T-002-x.md", est_hours_old_way="   # comment")
+    assert validate(tmp_path) == []
+
+
+@pytest.mark.parametrize("status", ["approved", "done"])
+def test_task_status_needs_estimate(tmp_path: Path, status: str) -> None:
+    minimal_layer(tmp_path)
+    task_file(tmp_path, "T-002-x.md", status=status)
+    e = errs(tmp_path, "T-002-x.md")
+    assert len(e) == 1 and "est_hours_old_way" in e[0]
+
+
+def test_task_done_with_comments_ok(tmp_path: Path) -> None:
+    minimal_layer(tmp_path)
+    task_file(tmp_path, "T-002-x.md", status="done  # draft | approved", est_hours_old_way="5  # confirmed")
+    assert validate(tmp_path) == []
+
+
+def test_task_missing_key(tmp_path: Path) -> None:
+    minimal_layer(tmp_path)
+    task_file(tmp_path, "T-002-x.md", budget_usd=None)
+    assert any("missing frontmatter key 'budget_usd'" in e for e in errs(tmp_path, "T-002-x.md"))
+
+
+def test_task_missing_type(tmp_path: Path) -> None:
+    assert "type" in REQUIRED_TASK_KEYS
+    minimal_layer(tmp_path)
+    task_file(tmp_path, "T-002-x.md", type=None)
+    assert any("'type'" in e for e in errs(tmp_path, "T-002-x.md"))
+
+
+@pytest.mark.parametrize("status", ["in progress", "Done", ""], ids=["space", "case", "empty"])
+def test_task_bad_status(tmp_path: Path, status: str) -> None:
+    minimal_layer(tmp_path)
+    task_file(tmp_path, "T-002-x.md", status=status, est_hours_old_way="1")
+    e = errs(tmp_path, "T-002-x.md")
+    assert len(e) == 1 and "status" in e[0]
+
+
+@pytest.mark.parametrize("name,tid", [("T-007-x.md", "T-008"), ("T-0010-x.md", "T-001")], ids=["other", "prefix"])
+def test_task_id_mismatch(tmp_path: Path, name: str, tid: str) -> None:
+    minimal_layer(tmp_path)
+    task_file(tmp_path, name, id=tid)
+    assert any("does not match file name" in e for e in errs(tmp_path, name))
+
+
+def test_task_id_equals_stem_ok(tmp_path: Path) -> None:
+    minimal_layer(tmp_path)
+    task_file(tmp_path, "T-009.md", id="T-009")
+    assert validate(tmp_path) == []
+
+
+def test_task_duplicate_id(tmp_path: Path) -> None:
+    minimal_layer(tmp_path)
+    task_file(tmp_path, "T-005-a.md", id="T-005")
+    task_file(tmp_path, "T-005-b.md", id="T-005")
+    e = [x for x in validate(tmp_path) if "T-005-a.md" in x and "T-005-b.md" in x]
+    assert len(e) == 1 and len(validate(tmp_path)) == 1
+
+
+@pytest.mark.parametrize("text", ["just body\n", "---\nid: T-010\nstatus: draft\n"], ids=["body", "unclosed"])
+def test_task_no_frontmatter(tmp_path: Path, text: str) -> None:
+    minimal_layer(tmp_path)
+    write(tmp_path, "tasks/T-010-x.md", text)
+    e = errs(tmp_path, "T-010-x.md")
+    assert len(e) == 1 and "no frontmatter block" in e[0]
+
+
+def test_task_crlf_ok(tmp_path: Path) -> None:
+    minimal_layer(tmp_path)
+    task_file(tmp_path, "T-002-x.md")
+    p = tmp_path / "tasks/T-002-x.md"
+    p.write_bytes(p.read_bytes().replace(b"\n", b"\r\n"))
+    assert validate(tmp_path) == []
 
 
 def test_real_repo_agent_layer_is_valid() -> None:
