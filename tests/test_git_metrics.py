@@ -13,10 +13,6 @@ from scripts import git_metrics
 
 DEV = ("Dev", "dev@example.com")
 OTHER = ("Other Dev", "other@example.com")
-LEAKY_GIT_ENV = (
-    "GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_OBJECT_DIRECTORY",
-    "GIT_COMMON_DIR", "GIT_NAMESPACE", "GIT_ALTERNATE_OBJECT_DIRECTORIES",
-)  # fmt: skip
 MONTHS = [
     dict(month="2026-01", commits=4, active_days=3, commits_per_active_day=1.33, code_lines=21,
          lines_per_active_day=7, test_share=0.238, fix_share=0.25, feat_commits=1, ai_commits=0, merges=0),
@@ -50,21 +46,27 @@ def lines(n: int, tag: str = "x") -> str:
     return "".join(f"{tag}{i}\n" for i in range(n))
 
 
-def isolate(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, name: str) -> Path:
-    for var in LEAKY_GIT_ENV:
-        monkeypatch.delenv(var, raising=False)
+def clean_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    for var in [v for v in os.environ if v.startswith("GIT_")]:
+        monkeypatch.delenv(var)
     for var, sub in (("HOME", "home"), ("USERPROFILE", "home"), ("XDG_CONFIG_HOME", "xdg")):
         (tmp_path / sub).mkdir(exist_ok=True)
         monkeypatch.setenv(var, str(tmp_path / sub))
-    cfg = tmp_path / "gitcfg"
-    cfg.write_text("", encoding="utf-8")
+    (tmp_path / "gitcfg").write_text("", encoding="utf-8")
     monkeypatch.setenv("GIT_CONFIG_NOSYSTEM", "1")
-    monkeypatch.setenv("GIT_CONFIG_GLOBAL", str(cfg))
+    monkeypatch.setenv("GIT_CONFIG_GLOBAL", str(tmp_path / "gitcfg"))
+
+
+def isolate(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, name: str) -> Path:
+    clean_env(tmp_path, monkeypatch)
     repo = tmp_path / name
     repo.mkdir()
-    git(repo, "init", "-q", "-b", "main")
-    git(repo, "config", "commit.gpgsign", "false")
-    git(repo, "config", "core.autocrlf", "false")
+    try:  # pytest.fail is not a CalledProcessError, so setup errors never count as an xfail
+        git(repo, "init", "-q", "-b", "main")
+        git(repo, "config", "commit.gpgsign", "false")
+        git(repo, "config", "core.autocrlf", "false")
+    except subprocess.CalledProcessError as e:
+        pytest.fail(f"fixture setup failed: {e.stderr}")
     return repo
 
 
@@ -166,21 +168,26 @@ def test_empty_repo(empty: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest
     assert run(empty, monkeypatch, capsys)["total_commits"] == 0
 
 
-def test_fixture_ignores_git_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def snapshot(root: Path) -> dict[str, bytes]:
+    return {str(f.relative_to(root)): f.read_bytes() for f in root.rglob("*") if f.is_file()}
+
+
+@pytest.mark.parametrize("var", ["GIT_DIR", "GIT_COMMON_DIR", "GIT_WORK_TREE", "GIT_CONFIG"])
+def test_fixture_ignores_git_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, var: str) -> None:
+    clean_env(tmp_path, monkeypatch)
     scratch = tmp_path / "scratch"
     scratch.mkdir()
-    monkeypatch.delenv("GIT_DIR", raising=False)
     subprocess.run(["git", "init", "-q", "-b", "main", str(scratch)], check=True)
-    monkeypatch.setenv("GIT_DIR", str(scratch / ".git"))  # as git does when running hooks
+    (scratch / "extra.cfg").write_text("[user]\n", encoding="utf-8")
+    before = snapshot(scratch)
+    target = scratch / "extra.cfg" if var == "GIT_CONFIG" else scratch / ".git"
+    monkeypatch.setenv(var, str(scratch if var == "GIT_WORK_TREE" else target))  # git sets these in hooks
     build(tmp_path, monkeypatch)
-    count = subprocess.run(
-        ["git", "--git-dir", str(scratch / ".git"), "rev-list", "--all", "--count"],
-        capture_output=True, text=True, check=True,
-    ).stdout.strip()  # fmt: skip
-    assert count == "0"
+    assert snapshot(scratch) == before
 
 
 def test_not_a_repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    isolate(tmp_path, monkeypatch, "other")
     d = tmp_path / "plain"
     d.mkdir()
     monkeypatch.setenv("GIT_CEILING_DIRECTORIES", str(tmp_path))
