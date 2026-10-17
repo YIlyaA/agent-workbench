@@ -4,7 +4,7 @@ from typing import Any
 
 import pytest
 
-from scripts.install import HOOK_MARKER, install
+from scripts.install import HOOK_MARKER, _backup_dest, install
 
 REPO = Path(__file__).resolve().parent.parent
 
@@ -105,3 +105,70 @@ def test_invalid_settings_json_aborts_without_writing(tmp_path: Path) -> None:
         install(REPO, tmp_path, apply=True)
     assert (claude / "settings.json").read_text() == "{ not json"
     assert not (claude / "skills").exists()
+
+
+STAMP = "20261017-120000"
+
+
+@pytest.fixture
+def fixed_stamp(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("scripts.install._stamp", lambda: STAMP)
+
+
+def test_same_second_dir_backups(tmp_path: Path, fixed_stamp: None) -> None:
+    skill = tmp_path / ".claude" / "skills" / "bootstrap"
+    skill.mkdir(parents=True)
+    (skill / "marker").write_text("a")
+    install(REPO, tmp_path, apply=True)
+    (skill / "marker").write_text("b")
+    install(REPO, tmp_path, apply=True)
+    skills = tmp_path / ".claude" / "skills"
+    assert (skills / f"bootstrap.bak-{STAMP}" / "marker").read_text() == "a"
+    assert (skills / f"bootstrap.bak-{STAMP}-1" / "marker").read_text() == "b"
+
+
+def test_same_second_file_backups(tmp_path: Path, fixed_stamp: None) -> None:
+    path = tmp_path / ".claude" / "settings.json"
+    path.parent.mkdir(parents=True)
+    for value in ("a", "b"):
+        path.write_text(json.dumps({"model": value}))
+        install(REPO, tmp_path, apply=True)
+    assert json.loads((path.parent / f"settings.json.bak-{STAMP}").read_text()) == {"model": "a"}
+    assert json.loads((path.parent / f"settings.json.bak-{STAMP}-1").read_text()) == {"model": "b"}
+
+
+@pytest.mark.parametrize(
+    ("taken", "kind", "want"),
+    [
+        ([], "file", "x.bak-S"),
+        (["x.bak-S"], "file", "x.bak-S-1"),
+        (["x.bak-S", "x.bak-S-1"], "file", "x.bak-S-2"),
+        (["x.bak-S", "x.bak-S-2"], "file", "x.bak-S-1"),
+        (["x.bak-S"], "dir", "x.bak-S-1"),
+    ],
+    ids=["free", "one", "two", "gap", "other-kind"],
+)
+def test_backup_dest_counts_up(tmp_path: Path, taken: list[str], kind: str, want: str) -> None:
+    for name in taken:
+        if kind == "dir":
+            (tmp_path / name).mkdir()
+        else:
+            (tmp_path / name).write_text("")
+    assert _backup_dest(tmp_path / "x", "S").name == want
+
+
+def test_backup_dest_dangling_symlink(tmp_path: Path) -> None:
+    try:
+        (tmp_path / "x.bak-S").symlink_to(tmp_path / "missing")
+    except OSError:
+        pytest.skip("symlinks not permitted on this OS/user")
+    assert _backup_dest(tmp_path / "x", "S").name == "x.bak-S-1"
+
+
+def test_dry_run_names_free_backup(tmp_path: Path, fixed_stamp: None) -> None:
+    skills = tmp_path / ".claude" / "skills"
+    (skills / "bootstrap").mkdir(parents=True)
+    (skills / f"bootstrap.bak-{STAMP}").mkdir()
+    actions = install(REPO, tmp_path, apply=False)
+    assert any(a.endswith(f"-> bootstrap.bak-{STAMP}-1") for a in actions)
+    assert sorted(p.name for p in skills.iterdir()) == ["bootstrap", f"bootstrap.bak-{STAMP}"]
