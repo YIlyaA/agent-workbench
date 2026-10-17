@@ -16,6 +16,7 @@ Agents Workbench is the versioned home of my agent work environment: the `/boots
 | Lint / format | `uv run ruff check .` · `uv run ruff format --check .` |
 | Types | `uv run mypy` |
 | Agent layer contracts | `uv run python scripts/validate_agent_layer.py` |
+| Diff limit for the current task branch | `uv run python scripts/check_diff_limit.py` |
 | Install into `~/.claude` (human only) | `uv run python scripts/install.py` (dry run) · `--apply` |
 | Metrics report | `uv run python scripts/metrics_report.py` |
 | Human active minutes in a window | `uv run python scripts/metrics_report.py --active 2026-10-16T10:00 2026-10-16T11:30` |
@@ -28,7 +29,7 @@ Agents Workbench is the versioned home of my agent work environment: the `/boots
 2. Builders work in their own git worktree and branch named after the task id. At most **3 builders** run in parallel (8 GB RAM).
 3. Touch only the task's scope paths. Need another path → stop and ask.
 4. Tests first for any behavior change; watch them fail for the right reason.
-5. Stay inside `diff_limit_lines` and the budget (`budget_minutes`, `budget_usd`). Hitting either → stop and report.
+5. Stay inside the budget (`budget_minutes`, `budget_usd`). The diff limit is a hard stop: `scripts/check_diff_limit.py` fails `check.py` and CI when a `task/` branch passes `diff_limit_lines` (task file not counted). Over the limit, stop and report. Never trim tests, join lines or add lint suppressions to fit. Only the human raises a limit, on `main`.
 6. Run `uv run python scripts/check.py` and paste the real output into the task log. Never claim a check passed without running it.
 7. A separate `verifier` agent with fresh context reviews. Then a PR. Merging is L2: the agent runs `gh pr merge` only when the human asks, and Claude Code's permission prompt confirms it.
 8. Log one row in `session-log/tasks.csv`. A failure ends in a post-mortem (`templates/post-mortem.md`) and a proposed rule or skill change.
@@ -86,6 +87,6 @@ Repo skills (in `.claude/skills/`) run the loop: `plan-task` → `implement-task
 ## Do not touch
 
 - `~/.claude/` and every folder outside this repo. Install into `~/.claude/` only with `scripts/install.py`, run by the human.
-- `scripts/git_metrics.py`: copied unchanged from the reference design; changes need a task.
+- `scripts/git_metrics.py`: derived from the reference design, with bug fixes from T-007 (decision 0001). It computes headline number 1, so changes need a task.
 - `est_hours_old_way` in a task file after `status: approved`.
 - `.env*`, `secrets/`.

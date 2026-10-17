@@ -13,7 +13,7 @@ skills/bootstrap/        → installs the environment into any project (/bootstr
 hooks/                   → global guardrail hook (block_dangerous_git.py), installed by scripts/install.py
 tasks/                   → one file per task; _template.md is the contract
 session-log/             → tasks.csv (one row per task), events.jsonl (hook events), exported sessions
-scripts/                 → check.py, install.py, validate_agent_layer.py, log_event.py (hook), metrics_report.py, git_metrics.py
+scripts/                 → check.py, check_diff_limit.py, install.py, validate_agent_layer.py, log_event.py (hook), metrics_report.py, git_metrics.py
 docs/                    → plan, baseline, decisions, readiness score, release evidence
 ```
 
@@ -35,6 +35,7 @@ Goal → `planner` writes `tasks/T-xxx.md` (frozen `est_hours_old_way`) → huma
 
 - [0001: stack and layout](docs/decisions/0001-stack-and-layout.md): versioned copy of the reference design; stdlib runtime, uv dev tools.
 - [0002: approve-to-execute](docs/decisions/0002-approve-to-execute.md): merges and guardrail changes run on the human's request, confirmed in the permission prompt.
+- [0003: diff limit is a hard stop](docs/decisions/0003-diff-limit-hard-stop.md): checked by check.py and CI; only the task file is excluded; only the human raises a limit.
 
 ## Current state (2026-10-16)
 
