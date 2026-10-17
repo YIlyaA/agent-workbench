@@ -5,6 +5,7 @@ import os
 import subprocess
 import sys
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -12,6 +13,10 @@ from scripts import git_metrics
 
 DEV = ("Dev", "dev@example.com")
 OTHER = ("Other Dev", "other@example.com")
+LEAKY_GIT_ENV = (
+    "GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_OBJECT_DIRECTORY",
+    "GIT_COMMON_DIR", "GIT_NAMESPACE", "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+)  # fmt: skip
 MONTHS = [
     dict(month="2026-01", commits=4, active_days=3, commits_per_active_day=1.33, code_lines=21,
          lines_per_active_day=7, test_share=0.238, fix_share=0.25, feat_commits=1, ai_commits=0, merges=0),
@@ -29,7 +34,7 @@ def git(repo: Path, *args: str, date: str = "", who: tuple[str, str] = DEV, cdat
     return subprocess.run(cmd, env=env, capture_output=True, text=True, encoding="utf-8", check=True).stdout
 
 
-def commit(repo: Path, files: dict, msg: str, date: str, **kw) -> None:  # type: ignore[no-untyped-def,type-arg]
+def commit(repo: Path, files: dict[str, Any], msg: str, date: str, **kw: Any) -> None:
     for name, body in files.items():
         p = repo / name
         p.parent.mkdir(parents=True, exist_ok=True)
@@ -46,6 +51,11 @@ def lines(n: int, tag: str = "x") -> str:
 
 
 def isolate(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, name: str) -> Path:
+    for var in LEAKY_GIT_ENV:
+        monkeypatch.delenv(var, raising=False)
+    for var, sub in (("HOME", "home"), ("USERPROFILE", "home"), ("XDG_CONFIG_HOME", "xdg")):
+        (tmp_path / sub).mkdir(exist_ok=True)
+        monkeypatch.setenv(var, str(tmp_path / sub))
     cfg = tmp_path / "gitcfg"
     cfg.write_text("", encoding="utf-8")
     monkeypatch.setenv("GIT_CONFIG_NOSYSTEM", "1")
@@ -77,12 +87,13 @@ def build(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     return repo
 
 
-def run(repo: Path, mp: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], *extra: str) -> dict:  # type: ignore[type-arg]
+def run(repo: Path, mp: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], *extra: str) -> dict[str, Any]:
     out = repo.parent / "m.json"
     mp.setattr(sys, "argv", ["git_metrics.py", str(repo), "--out", str(out), *extra])
     git_metrics.main()
     capsys.readouterr()
-    return json.loads(out.read_text(encoding="utf-8"))  # type: ignore[no-any-return]
+    res: dict[str, Any] = json.loads(out.read_text(encoding="utf-8"))
+    return res
 
 
 @pytest.fixture
@@ -90,13 +101,15 @@ def fx(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     return build(tmp_path, monkeypatch)
 
 
-def test_months_match_fixture(fx, monkeypatch, capsys):  # type: ignore[no-untyped-def]
+def test_months_match_fixture(fx: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     res = run(fx, monkeypatch, capsys)
     assert res["total_commits"] == 5
     assert res["months"] == MONTHS  # 01-31T23:30-05:00 stays in 2026-01; 3 active days; no 2026-03
 
 
-def test_author_date_not_committer_date(fx, monkeypatch, capsys):  # type: ignore[no-untyped-def]
+def test_author_date_not_committer_date(
+    fx: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
     res = run(fx, monkeypatch, capsys)
     assert [m["month"] for m in res["months"]] == ["2026-01", "2026-02"]
 
@@ -107,12 +120,12 @@ def test_author_date_not_committer_date(fx, monkeypatch, capsys):  # type: ignor
      ("fixed typo", 0, 0), ("prefix: fix", 0, 0), ("feat: a", 0, 1), ("feature x", 0, 0)],
     ids=["fix1", "fix2", "fix3", "fix4", "nofix1", "nofix2", "feat1", "nofeat1"],
 )  # fmt: skip
-def test_fix_feat_regex(subject, fix, feat):  # type: ignore[no-untyped-def]
+def test_fix_feat_regex(subject: str, fix: int, feat: int) -> None:
     assert bool(git_metrics.FIX.match(subject)) == bool(fix)
     assert bool(git_metrics.FEAT.match(subject)) == bool(feat)
 
 
-def test_author_filter_name(fx, monkeypatch, capsys):  # type: ignore[no-untyped-def]
+def test_author_filter_name(fx: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     res = run(fx, monkeypatch, capsys, "--author", "other")
     assert res["total_commits"] == 1
     assert [m["month"] for m in res["months"]] == ["2026-02"]
@@ -120,19 +133,19 @@ def test_author_filter_name(fx, monkeypatch, capsys):  # type: ignore[no-untyped
 
 
 @pytest.mark.xfail(strict=True, reason="git_metrics bug: --author compares %an only, not email")
-def test_author_filter_email(fx, monkeypatch, capsys):  # type: ignore[no-untyped-def]
+def test_author_filter_email(fx: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     assert run(fx, monkeypatch, capsys, "--author", "dev@example.com")["total_commits"] == 4
 
 
 @pytest.mark.xfail(strict=True, reason="git_metrics bug: merges counted from HEAD only, commits use --all")
-def test_merge_not_on_head(fx, monkeypatch, capsys):  # type: ignore[no-untyped-def]
+def test_merge_not_on_head(fx: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     git(fx, "checkout", "-q", "side")
     git(fx, "merge", "--no-ff", "feature", "-m", "Merge to side", date="2026-02-10T12:00:00+00:00")
     git(fx, "checkout", "-q", "main")
     assert run(fx, monkeypatch, capsys)["months"][1]["merges"] == 2
 
 
-def test_out_json_and_stdout(fx, monkeypatch, capsys):  # type: ignore[no-untyped-def]
+def test_out_json_and_stdout(fx: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     out = fx.parent / "m.json"
     monkeypatch.setattr(sys, "argv", ["git_metrics.py", str(fx), "--out", str(out)])
     git_metrics.main()
@@ -141,13 +154,33 @@ def test_out_json_and_stdout(fx, monkeypatch, capsys):  # type: ignore[no-untype
     assert set(json.loads(out.read_text(encoding="utf-8"))) == {"repo", "total_commits", "months", "generated"}
 
 
-@pytest.mark.xfail(strict=True, reason="git_metrics bug: empty repo makes git log exit 128")
-def test_empty_repo(tmp_path, monkeypatch, capsys):  # type: ignore[no-untyped-def]
-    repo = isolate(tmp_path, monkeypatch, "empty")
-    assert run(repo, monkeypatch, capsys)["total_commits"] == 0
+@pytest.fixture
+def empty(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    return isolate(tmp_path, monkeypatch, "empty")
 
 
-def test_not_a_repo(tmp_path, monkeypatch, capsys):  # type: ignore[no-untyped-def]
+@pytest.mark.xfail(
+    strict=True, raises=subprocess.CalledProcessError, reason="git_metrics bug: empty repo makes git log exit 128"
+)
+def test_empty_repo(empty: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    assert run(empty, monkeypatch, capsys)["total_commits"] == 0
+
+
+def test_fixture_ignores_git_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    scratch = tmp_path / "scratch"
+    scratch.mkdir()
+    monkeypatch.delenv("GIT_DIR", raising=False)
+    subprocess.run(["git", "init", "-q", "-b", "main", str(scratch)], check=True)
+    monkeypatch.setenv("GIT_DIR", str(scratch / ".git"))  # as git does when running hooks
+    build(tmp_path, monkeypatch)
+    count = subprocess.run(
+        ["git", "--git-dir", str(scratch / ".git"), "rev-list", "--all", "--count"],
+        capture_output=True, text=True, check=True,
+    ).stdout.strip()  # fmt: skip
+    assert count == "0"
+
+
+def test_not_a_repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     d = tmp_path / "plain"
     d.mkdir()
     monkeypatch.setenv("GIT_CEILING_DIRECTORIES", str(tmp_path))
@@ -155,12 +188,12 @@ def test_not_a_repo(tmp_path, monkeypatch, capsys):  # type: ignore[no-untyped-d
         run(d, monkeypatch, capsys)
 
 
-def test_deterministic(fx, monkeypatch, capsys):  # type: ignore[no-untyped-def]
+def test_deterministic(fx: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     a, b = run(fx, monkeypatch, capsys), run(fx, monkeypatch, capsys)
     assert (a["months"], a["total_commits"]) == (b["months"], b["total_commits"])
 
 
-def test_repo_untouched(fx, monkeypatch, capsys):  # type: ignore[no-untyped-def]
+def test_repo_untouched(fx: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     head = git(fx, "rev-parse", "HEAD")
     run(fx, monkeypatch, capsys)
     assert git(fx, "status", "--porcelain") == "" and git(fx, "rev-parse", "HEAD") == head

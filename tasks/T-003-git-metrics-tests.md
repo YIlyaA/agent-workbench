@@ -109,5 +109,6 @@ Expected JSON `months` (from `--out`):
   - empty repo: `git log --merges` exits 128, `CalledProcessError` (test_empty_repo).
   - Also: merges are not author-filtered (pinned in test_author_filter_name).
 - Checks run: `uv run python scripts/check.py` -> ruff, format, mypy OK; `257 passed, 3 xfailed`; ALL CHECKS PASSED.
+- Attempt 2 (verifier FAIL on 6f14bc1, isolation): `isolate()` now deletes GIT_DIR, GIT_WORK_TREE, GIT_INDEX_FILE, GIT_OBJECT_DIRECTORY, GIT_COMMON_DIR, GIT_NAMESPACE, GIT_ALTERNATE_OBJECT_DIRECTORIES and points HOME, USERPROFILE, XDG_CONFIG_HOME into tmp_path. New `test_fixture_ignores_git_dir`. Empty repo built in an `empty` fixture, xfail has `raises=CalledProcessError`. All `type: ignore` removed, tests annotated. Check: `258 passed, 3 xfailed`, ALL CHECKS PASSED. Also ran the file with an external GIT_DIR set: passes, external repo stayed at 0 commits.
 - Verifier verdict and findings:
 - Human review (minutes, notes):
