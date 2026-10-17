@@ -1,6 +1,6 @@
 ---
 id: T-005
-status: approved # draft | approved | in-progress | ready-for-review | done | rejected
+status: ready-for-review # draft | approved | in-progress | ready-for-review | done | rejected
 risk: low                # installer code, but tests touch only tmp_path; no run against the real home
 autonomy: L2             # L0 observe | L1 recommend | L2 approve-to-execute | L3 guardrailed auto
 type: bugfix             # feature | bugfix | docs | skill | metrics | research
@@ -73,7 +73,8 @@ Nothing else. Do **not** edit `session-log/tasks.csv` (the orchestrator writes t
 - **Size basis (120 lines):** about 15 lines in `install.py`, 6 tests at about 10 lines each.
 
 ## Log (filled in by the builder and verifier)
-- Start / end:
-- Checks run (command and real output):
+- Start / end: 10:06 / 10:07 (wall clock)
+- Failing run before the fix (stub `_backup_dest` returning the plain name): dir test `OSError: [Errno 66] Directory not empty ... bootstrap -> bootstrap.bak-20261017-120000`; file test `assert {'model': 'b'} == {'model': 'a'}` (backup overwritten); 7 other new tests failed on the name.
+- Checks run (command and real output): `uv run python scripts/check.py` -> ruff ok, format ok, mypy ok, 251 passed, agent layer OK, ALL CHECKS PASSED
 - Verifier verdict and findings:
 - Human review (minutes, notes):
