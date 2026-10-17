@@ -1,6 +1,6 @@
 ---
 id: T-010
-status: ready-for-review       # draft | approved | in-progress | ready-for-review | done | rejected
+status: done          # draft | approved | in-progress | ready-for-review | done | rejected
 risk: low                # one docs subsection; the run is read-only on another repo and done by the orchestrator
 autonomy: L1             # L0 observe | L1 recommend | L2 approve-to-execute | L3 guardrailed auto
 type: metrics            # feature | bugfix | docs | skill | metrics | research
@@ -109,3 +109,4 @@ No code. The checks are the run steps above, the verifier's privacy grep, and `u
 - **Estimate basis (`est_hours_old_way: 0.5`):** two runs, a per-month diff and one subsection. Planning aid only.
 - **Size basis (40):** a heading, a 6-to-8-row table or list and one sentence: about 15 lines; up to about 30 if cells changed and the two-period numbers are shown side by side.
 - **Assumptions:** the old script at `<c>^` is the version that produced the published table (it was unchanged in behavior from the reference design until T-007, decision 0001). The human remembers or can supply the `--author` value if one was used.
+- Release (2026-10-17): PR #20 squash-merged. Final verdict: PASS WITH NITS (4 wording findings, fixed and re-checked by the orchestrator). review_findings 4. Diff 18/40. my_active_minutes 0: the human did not review line by line; the orchestrator merged on the human's 'finish what's open' instruction after green CI on 3 OSes.

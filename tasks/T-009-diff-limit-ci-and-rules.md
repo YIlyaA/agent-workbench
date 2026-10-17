@@ -1,6 +1,6 @@
 ---
 id: T-009
-status: ready-for-review          # draft | approved | in-progress | ready-for-review | done | rejected
+status: done          # draft | approved | in-progress | ready-for-review | done | rejected
 risk: medium             # edits .github/workflows/ci.yml, an `ask` guardrail path (decision 0002)
 autonomy: L2             # L0 observe | L1 recommend | L2 approve-to-execute | L3 guardrailed auto
 type: docs               # feature | bugfix | docs | skill | metrics | research
@@ -121,3 +121,4 @@ Nothing else. Do **not** edit `session-log/tasks.csv` (the orchestrator writes t
 - **Estimate basis (`est_hours_old_way: 0.75`):** 15 min of YAML and checking the GitHub env vars, 30 min of rule text in 7 files. Planning aid only.
 - **Size basis (80):** about 10 YAML lines, 6 in AGENTS.md, 3 in CONTEXT.md, 2 each in builder.md and planner.md, 2 in plan-task, about 6 in verify-diff, 2 in the template: about 35 insertions plus deletions, so 80 leaves room for wording.
 - **Assumptions:** T-008 is merged, so this branch is checked by its own rule. Decision 0003 is on `main` before this branch starts (it is committed with the task files). `GITHUB_HEAD_REF` and `GITHUB_BASE_REF` are set for `pull_request` events (GitHub docs, default env vars).
+- Release (2026-10-17): PR #23 squash-merged. Final verdict: PASS, 0 findings; the new diff-limit CI job passed on its own PR. review_findings 0. Diff 30/80. my_active_minutes 0: the human did not review line by line; the orchestrator merged on the human's 'finish what's open' instruction after green CI on 3 OSes.

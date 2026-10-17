@@ -1,6 +1,6 @@
 ---
 id: T-008
-status: ready-for-review         # draft | approved | in-progress | ready-for-review | done | rejected
+status: done          # draft | approved | in-progress | ready-for-review | done | rejected
 risk: low                # new read-only script; turns over-limit branches red in check.py (intended)
 autonomy: L2             # L0 observe | L1 recommend | L2 approve-to-execute | L3 guardrailed auto
 type: feature            # feature | bugfix | docs | skill | metrics | research
@@ -122,3 +122,4 @@ Flow: [docs/diagrams/diff-limit-check.md](../docs/diagrams/diff-limit-check.md).
 - **Estimate basis (`est_hours_old_way: 2`):** 45 min for the script (merge-base, `-z` numstat, untracked bytes, base-version limit), 75 min for about 25 fixture-based tests. Realistic per the T-002 calibration. Planning aid only.
 - **Size basis (300):** about 100 to 120 script lines, 1 line in `check.py`, a 20-line fixture helper, and about 25 rows at about 6 lines each (parametrized, shared helpers imported) is about 270 to 290. Tight on purpose; the builder stops if it goes over.
 - **Assumptions:** git >= 2.20 on all runners. Builders name branches `task/<id>-<slug>` (builder.md step 2). `clean_env`, `git` and `commit` in `tests/test_git_metrics.py` keep their names and signatures through T-007 (T-007's builder notes say so).
+- Release (2026-10-17): PR #22 squash-merged. Final verdict: PASS WITH NITS (2 minor deferred: \r in untracked names counts 0; .gitattributes -diff). review_findings 13. Diff 407/420 (hard stop fired 3 times; limit raised by the human 300 -> 350 -> 400 -> 420 in PRs #17, #19, #21). my_active_minutes 0: the human did not review line by line; the orchestrator merged on the human's 'finish what's open' instruction after green CI on 3 OSes.
