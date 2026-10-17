@@ -1,6 +1,6 @@
 ---
 id: T-003
-status: approved # draft | approved | in-progress | ready-for-review | done | rejected
+status: ready-for-review # draft | approved | in-progress | ready-for-review | done | rejected
 risk: low                # tests only; the script under test is read-only and is not changed
 autonomy: L2             # L0 observe | L1 recommend | L2 approve-to-execute | L3 guardrailed auto
 type: tests              # feature | bugfix | docs | skill | metrics | research | tests
@@ -102,8 +102,12 @@ Expected JSON `months` (from `--out`):
 - **Size basis (220 lines):** fixture helper about 45 lines, about 14 tests at about 8 lines each, plus the regex parametrization.
 
 ## Log (filled in by the builder and verifier)
-- Start / end:
-- Bugs found in `scripts/git_metrics.py` (not fixed):
-- Checks run (command and real output):
+- Start / end: 10:06 / 10:07 (machine clock)
+- Bugs found in `scripts/git_metrics.py` (not fixed), each confirmed with `--runxfail`:
+  - `--author` matches `%an` only, not email: `assert 0 == 4` (test_author_filter_email).
+  - merges counted without `--all`, so a merge on a non-HEAD branch is missed: `assert 1 == 2` (test_merge_not_on_head).
+  - empty repo: `git log --merges` exits 128, `CalledProcessError` (test_empty_repo).
+  - Also: merges are not author-filtered (pinned in test_author_filter_name).
+- Checks run: `uv run python scripts/check.py` -> ruff, format, mypy OK; `257 passed, 3 xfailed`; ALL CHECKS PASSED.
 - Verifier verdict and findings:
 - Human review (minutes, notes):
