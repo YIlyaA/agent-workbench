@@ -19,7 +19,7 @@ target-version = "py312"
 select = ["E", "F", "W", "I", "B", "UP"]
 
 [tool.ruff.lint.per-file-ignores]
-# Copied from the reference design (decision 0001); ruff-formatted only, AST identical to the original.
+# From the reference design (decision 0001); behavior changed by T-007 (author email, merges from all refs, stash excluded).
 "scripts/git_metrics.py" = ["E401", "I001", "E501", "B007", "UP"]
 
 [tool.mypy]
