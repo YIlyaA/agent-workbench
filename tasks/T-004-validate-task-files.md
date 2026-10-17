@@ -88,8 +88,7 @@ Nothing else. Do **not** edit `session-log/tasks.csv` (the orchestrator writes t
 - **Size basis (160 lines):** about 35 lines of code, about 14 tests at about 6 lines each, plus the helper.
 
 ## Log (filled in by the builder and verifier)
-- Start / end: 10:06 / 10:07 (system clock)
-- Checks run (command and real output): `uv run python scripts/check.py` -> ruff check/format OK, mypy no issues in 17 files, pytest 259 passed, agent layer: OK, ALL CHECKS PASSED. Attempt 1 diff vs 2cdb273: 132 insertions+deletions across 3 files (the first figure, 129/5, excluded the task file).
-- Attempt 2 (after verifier FAIL, 6 findings fixed): check.py -> ruff OK, mypy OK, pytest 264 passed, agent layer: OK, ALL CHECKS PASSED. Diff vs 2cdb273: about 156 insertions and 8 deletions across 3 files.
+- Start / end (commit times): attempt 1 10:06-10:07 (317e9c8), attempt 2 -10:09 (f24fd40), attempt 3 -10:14 (final commit)
+- Checks run (command and real output): `uv run python scripts/check.py` -> ruff OK, mypy OK, pytest 264 passed, agent layer: OK, ALL CHECKS PASSED. Attempt 1: 132 changed lines; attempt 2: 165; attempt 3 (final): 151 insertions + 8 deletions = 159.
 - Verifier verdict and findings:
 - Human review (minutes, notes):
