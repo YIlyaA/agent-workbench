@@ -1,6 +1,6 @@
 ---
 id: T-007
-status: ready-for-review          # draft | approved | in-progress | ready-for-review | done | rejected
+status: done          # draft | approved | in-progress | ready-for-review | done | rejected
 risk: medium             # changes the read-only script behind headline number 1 (METRICS.md); T-010 re-checks the baseline
 autonomy: L2             # L0 observe | L1 recommend | L2 approve-to-execute | L3 guardrailed auto
 type: bugfix             # feature | bugfix | docs | skill | metrics | research
@@ -115,3 +115,4 @@ Nothing else. `scripts/git_metrics.py` is on the AGENTS.md "Do not touch" list (
 - **Decisions recorded:** [0003](../docs/decisions/0003-diff-limit-hard-stop.md) (diff limit hard stop) and a note in [0001](../docs/decisions/0001-stack-and-layout.md) that `git_metrics.py` now differs from the reference design in behavior, not only formatting.
 - **Assumptions:** git >= 2.20 on all CI runners (for `--exclude` with `--all`). `--all` on an empty repo exits 0 on every OS's git; spec item 4 gives the fallback.
 - **Open risks:** the AGENTS.md "copied unchanged" line is inaccurate between this merge and T-009's merge (T-009 rewords it). If T-010 finds a stash in the source repo, the 2.4x to 2.7x ratio is recomputed there.
+- Release (2026-10-17): PR #18 squash-merged. Final verdict: PASS WITH NITS (the one nit, Windows CI, was green before merge). review_findings 1. Diff 76/120. my_active_minutes 0: the human did not review line by line; the orchestrator merged on the human's 'finish what's open' instruction after green CI on 3 OSes.

@@ -5,3 +5,7 @@ T-003,2026-10-17,tests,agent,1.5,0,24,10:06,12:46,no,13,no,"git_metrics.py has c
 T-004,2026-10-17,feature,agent,1,0,22,10:06,12:40,no,15,no,"every task file is validated (keys, status, estimate, id, duplicates, UTF-8, OS-independent names)"
 T-005,2026-10-17,bugfix,agent,0.5,0,2,10:06,12:36,yes,0,no,"install.py backups never collide or overwrite each other"
 T-006,2026-10-17,metrics,agent,2,0,10,10:07,12:47,no,9,no,"metrics report shows max concurrent subagents and builders from subagent transcripts"
+T-007,2026-10-17,bugfix,agent,1,0,3,13:08,13:50,yes,1,no,"git_metrics.py: --author matches email, merges from all refs, stash excluded, empty repo no crash"
+T-008,2026-10-17,feature,agent,2,0,29,13:08,13:50,no,13,no,"hard diff-limit check in check.py; the limit can only come from main; output cannot be spoofed"
+T-009,2026-10-17,docs,agent,0.75,0,3,13:32,13:53,yes,0,no,"diff-limit CI job on pull requests and the rule text in AGENTS.md, agents and skills"
+T-010,2026-10-17,metrics,agent,0.5,0,6,13:17,13:50,no,4,no,"baseline re-check recorded: pre-agent months reproduce, 2026-08 onward does not; 2.4-2.7x ratio unverified"
