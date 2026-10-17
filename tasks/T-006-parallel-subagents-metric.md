@@ -69,7 +69,7 @@ Nothing else. Do **not** edit `session-log/tasks.csv` (the orchestrator writes t
 | Corrupt lines | `not json`, `[]`, `{"timestamp": 5}`, `{"timestamp": "yesterday"}`, `{}` among 2 valid lines | Only the 2 valid timestamps are kept | `test_subagents_corrupt_lines` |
 | No valid timestamps | jsonl with only corrupt lines; also an empty file | Agent dropped | same test, extra file |
 | Meta missing or corrupt | no `.meta.json`; `{bad`; `[]`; `{"agentType": 3}` | `agent_type == "unknown"` | `test_subagents_meta_fallback` (ids `none`, `bad`, `list`, `int`) |
-| Idle gap split | one builder at 11:47, 11:50, 12:20, 12:31 | Intervals `[11:47,11:50]`, `[12:20,12:31]` | `test_active_intervals_split` (pure) |
+| Idle gap split | one builder at 11:47, 11:50, then every 4 min from 12:20 to 12:31 | Intervals `[11:47,11:50]`, `[12:20,12:31]` (gap 11:50 to 12:20 is over 5 min) | `test_active_intervals_split` (pure) |
 | Gap exactly 5 min / just over | 10:00, 10:05, 10:10:01 | `[10:00,10:05]`, `[10:10:01,10:10:01]` | `test_active_intervals_boundary` (pure) |
 | Resume does not inflate | builder A as above; builder B active 12:00 to 12:10 only (in A's idle gap) | `builders_max == 1`, not 2 | `test_resume_gap_not_counted` |
 | Three builders overlap | A, B, C active 10:00 to 10:20, 10:05 to 10:25, 10:10 to 10:30 (records at most 5 min apart, so each is one interval); one verifier 10:12 to 10:14 | `max == 4` window 10:12-10:14; `builders_max == 3` window 10:10-10:20 | `test_concurrency_window` |

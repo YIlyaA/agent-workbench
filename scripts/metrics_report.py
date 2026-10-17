@@ -125,7 +125,8 @@ def active_intervals(times: list[datetime], gap_min: float = SUBAGENT_IDLE_GAP_M
 
 def subagent_concurrency(agents: list[tuple[str, list[datetime]]]) -> dict:
     spans = {f"{i}#{j}": iv for i, (_, ts) in enumerate(agents) for j, iv in enumerate(active_intervals(ts))}
-    builders = {k: v for k, v in spans.items() if agents[int(k.split("#")[0])][0] == BUILDER_TYPE}
+    only = [(i, ts) for i, (kind, ts) in enumerate(agents) if kind == BUILDER_TYPE]
+    builders = {f"{i}#{j}": iv for i, ts in only for j, iv in enumerate(active_intervals(ts))}
     n, a, b = max_overlap(spans)
     m, c, d = max_overlap(builders)
     return {"max": n, "window": (a, b), "builders_max": m, "builders_window": (c, d)}
@@ -226,7 +227,7 @@ def load_events(path: Path) -> list[dict]:
             e = json.loads(line)
             e["ts"] = datetime.fromisoformat(e["timestamp"]).astimezone()
             out.append(e)
-        except (ValueError, KeyError, TypeError):
+        except (ValueError, KeyError, TypeError, OverflowError):
             continue  # a corrupt line must not hide the rest of the log
     return out
 
@@ -276,7 +277,7 @@ def load_subagents(project_dir: Path) -> list[tuple[str, list[datetime]]]:
                 for line in fh:
                     try:
                         stamps.append(datetime.fromisoformat(json.loads(line)["timestamp"]).astimezone())
-                    except (ValueError, KeyError, TypeError, AttributeError):
+                    except (ValueError, KeyError, TypeError, AttributeError, OverflowError):
                         continue  # corrupt or half-written line
         except OSError:
             continue
@@ -338,7 +339,8 @@ def _count_window(n: int, window: tuple[datetime | None, datetime | None]) -> st
 def report(tasks: list[Task], events: list[dict], repo: Path, subagents: list | None = None) -> str:
     conc = subagent_concurrency(subagents) if subagents else None
     sub_line = _count_window(conc["max"], conc["window"]) if conc else "n/a"
-    bld_line = _count_window(conc["builders_max"], conc["builders_window"]) if conc else "n/a"
+    bld_line = _count_window(conc["builders_max"], conc["builders_window"]) if conc and conc["builders_max"] else "0"
+    bld_line = bld_line if conc else "n/a"
     s = summarize(tasks)
     agent = [t for t in tasks if t.method == "agent"]
     days = sorted({t.date for t in agent})

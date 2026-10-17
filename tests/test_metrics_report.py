@@ -160,6 +160,7 @@ def test_load_events_skips_corrupt_lines(tmp_path) -> None:
         "not json\n"
         '{"timestamp":"yesterday","session_id":"a","event":"Stop"}\n'
         '{"session_id":"b"}\n'
+        '{"timestamp":"0001-01-01T00:00:00+05:00"}\n'
         '{"timestamp":"2026-10-16T10:05:00+02:00","session_id":"a","event":"UserPromptSubmit","branch":"main"}\n',
         encoding="utf-8",
     )
@@ -250,7 +251,15 @@ def test_subagents_empty_dir(tmp_path) -> None:
 
 
 def test_subagents_corrupt_lines(tmp_path) -> None:
-    bad = ["not json", "[]", '{"timestamp": 5}', '{"timestamp": "yesterday"}', "{}", '{"timestamp": "2026-10-16T10:0']
+    bad = [
+        "not json",
+        "[]",
+        '{"timestamp": 5}',
+        '{"timestamp": "yesterday"}',
+        "{}",
+        '{"timestamp": "2026-10-16T10:0',
+        '{"timestamp": "0001-01-01T00:00:00+05:00"}',
+    ]
     agent(tmp_path, "s", "a1", "builder", [t(10, 0), t(10, 3)], extra_lines=bad)
     agent(tmp_path, "s", "a2", "builder", [], extra_lines=bad)
     agent(tmp_path, "s", "a3", "builder", [])
@@ -267,7 +276,9 @@ def test_subagents_corrupt_lines(tmp_path) -> None:
 )
 def test_subagents_meta_fallback(tmp_path, meta) -> None:
     agent(tmp_path, "s", "a1", "builder", [t(10, 0)], meta=meta)
-    assert [a[0] for a in load_subagents(tmp_path)] == ["unknown"]
+    subs = load_subagents(tmp_path)
+    assert [a[0] for a in subs] == ["unknown"]
+    assert "max concurrent builders: 0" in report([], [], tmp_path, subagents=subs)
 
 
 def test_subagents_unreadable_file(tmp_path, monkeypatch) -> None:
@@ -322,19 +333,13 @@ def test_window_crosses_midnight(tmp_path) -> None:
     a, b = t(23, 58), t(0, 3, day=17)
     agent(tmp_path, "s", "a", "builder", [a, b])
     out = report([], [], tmp_path, subagents=load_subagents(tmp_path))
-    assert f"max concurrent subagents: 1 ({local(a, '%Y-%m-%d %H:%M')}-{local(b, '%Y-%m-%d %H:%M')})" in out
-
-
-def test_report_window_format(tmp_path) -> None:
-    agent(tmp_path, "s", "a", "builder", [t(10, 0), t(10, 3)])
-    out = report([], [], tmp_path, subagents=load_subagents(tmp_path))
-    d = local(t(10, 0), "%Y-%m-%d")
-    assert f"max concurrent builders: 1 ({d} {local(t(10, 0))}-{local(t(10, 3))})" in out
+    assert f"max concurrent builders: 1 ({local(a, '%Y-%m-%d %H:%M')}-{local(b, '%Y-%m-%d %H:%M')})" in out
 
 
 def test_report_prints_no_content(tmp_path) -> None:
     body = '{"timestamp": "2026-10-16T10:01:00+02:00", "message": "SECRET-BODY"}'
     agent(tmp_path, "s", "a", "builder", [t(10, 0)], extra_lines=[body])
     out = report([], [], tmp_path, subagents=load_subagents(tmp_path))
-    assert "max concurrent subagents: 1" in out
+    day = local(t(10, 0), "%Y-%m-%d")
+    assert f"max concurrent subagents: 1 ({day} {local(t(10, 0))}-{local(t(10, 1))})" in out
     assert not any(s in out for s in SECRETS)
