@@ -72,8 +72,7 @@ def isolate(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, name: str) -> Path:
 
 def build(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     repo = isolate(tmp_path, monkeypatch, "repo")
-    one = {"app.py": lines(10, "a"), "uv.lock": lines(50), "package-lock.json": lines(40)}
-    one["migrations/0001_init.py"] = lines(30)
+    one = {"app.py": lines(10, "a"), "uv.lock": lines(50), "package-lock.json": lines(40), "migrations/0001_init.py": lines(30)}  # fmt: skip  # noqa: E501
     commit(repo, one, "feat: add app", "2026-01-15T10:00:00+00:00")
     two = {"tests/test_app.py": lines(5, "t"), "app.py": lines(10, "a").replace("a0", "b0")}
     commit(repo, two, "fix: off by one", "2026-01-15T15:00:00+00:00")
@@ -134,12 +133,12 @@ def test_author_filter_name(fx: Path, monkeypatch: pytest.MonkeyPatch, capsys: p
     assert res["months"][0]["merges"] == 1  # pins current behavior: merges are not author-filtered
 
 
-@pytest.mark.xfail(strict=True, reason="git_metrics bug: --author compares %an only, not email")
+@pytest.mark.xfail(strict=True, raises=AssertionError, reason="git_metrics bug: --author ignores email")
 def test_author_filter_email(fx: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     assert run(fx, monkeypatch, capsys, "--author", "dev@example.com")["total_commits"] == 4
 
 
-@pytest.mark.xfail(strict=True, reason="git_metrics bug: merges counted from HEAD only, commits use --all")
+@pytest.mark.xfail(strict=True, raises=AssertionError, reason="git_metrics bug: merges not from --all")
 def test_merge_not_on_head(fx: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     git(fx, "checkout", "-q", "side")
     git(fx, "merge", "--no-ff", "feature", "-m", "Merge to side", date="2026-02-10T12:00:00+00:00")
