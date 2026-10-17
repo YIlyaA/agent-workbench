@@ -25,6 +25,11 @@ For any change to `hooks/` or other code that blocks or allows actions, the orch
 
 Keep the command text inside the script file, never in the Bash command line, because the live hook reads command text. Never redirect the probe's errors to `/dev/null`: a crashed probe prints nothing, which looks the same as "no regressions" (2026-10-16, T-001).
 
+### Step 2c: Size and suppressions
+- The `diff limit:` line in the check output is under the limit.
+- Grep the added lines for `noqa|type: ignore|fmt: skip|fmt: off` and judge each one; a suppression added to fit the limit is a finding. Also grep the removed lines for deleted assertions or tests.
+- The task file changed only in `status` and the Log (it is excluded from the count, so the verifier checks it). Task files go to `main` in their own PR before builders start; otherwise branches conflict on the shared base (#12, #13, #14).
+
 ### Step 3: Record the verdict
 Write the verdict, finding count and the top findings (file:line) into the task's Log.
 - `PASS` or `PASS WITH NITS` (nits fixed) → ready for `release`.

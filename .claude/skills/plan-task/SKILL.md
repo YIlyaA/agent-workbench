@@ -21,6 +21,7 @@ For each `tasks/T-<nnn>-*.md`, confirm:
 - the edge-case table has a test per row
 - `est_hours_old_way` is filled, and `budget_minutes`/`budget_usd` are within 30 min / $5
 - `blocked_by` and `parallel_ok` are set; no more than 3 tasks are parallel at once
+- `diff_limit_lines` fits the sizing rule (about 8 lines per edge-case row, about 30 per new fixture helper, plus the code); over 300 means split
 
 Run `uv run python scripts/validate_agent_layer.py` (it checks the template contract).
 

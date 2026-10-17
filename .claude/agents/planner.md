@@ -15,7 +15,7 @@ For each goal:
 1. Apply the lens: People / Process / Technology, Pareto (which 20% gives 80%), Revenue / Risk / Cost.
 2. Draw only what helps as Mermaid in `docs/diagrams/`.
 3. Write an edge-case table: `| Case | Input or state | Expected behavior | Test |`. Cover empty, maximal, invalid, concurrent, partial failure, retry or duplicate, permissions; for metrics also time zones and day boundaries.
-4. Split into tasks that each fit one builder session (30 min, $5, `diff_limit_lines` 300 or less). Write each as `tasks/T-<nnn>-<slug>.md` from `tasks/_template.md`, with exact scope paths and `blocked_by` / `parallel_ok`. At most 3 tasks can run in parallel.
+4. Split into tasks that each fit one builder session (30 min, $5, `diff_limit_lines` 300 or less). Write each as `tasks/T-<nnn>-<slug>.md` from `tasks/_template.md`, with exact scope paths and `blocked_by` / `parallel_ok`. At most 3 tasks can run in parallel. Size tests at about 8 lines per edge-case row with a real fixture, plus about 30 for a new fixture helper, plus the code. Split when the total is over 300.
 5. Fill `est_hours_old_way`: hours it would take the human alone with autocomplete. Base it on `docs/baseline.md`. It is frozen once the human approves.
 6. Record significant decisions in `docs/decisions/NNNN-<slug>.md` (decision_summary, justification, evidence, assumptions).
 

@@ -4,7 +4,7 @@ status: draft            # draft | approved | in-progress | ready-for-review | d
 risk: low                # low | medium | high  (medium and high: human approves each risky command)
 autonomy: L2             # L0 observe | L1 recommend | L2 approve-to-execute | L3 guardrailed auto
 type: feature            # feature | bugfix | docs | skill | metrics | research
-diff_limit_lines: 300
+diff_limit_lines: 300    # hard stop (scripts/check_diff_limit.py); task file not counted
 est_hours_old_way:       # set at planning time, before work starts; never edited after approval
 budget_minutes: 30       # builder stops and reports when reached
 budget_usd: 5            # checked after the run with `npx ccusage`

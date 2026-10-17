@@ -1,6 +1,6 @@
 ---
 id: T-009
-status: approved          # draft | approved | in-progress | ready-for-review | done | rejected
+status: ready-for-review          # draft | approved | in-progress | ready-for-review | done | rejected
 risk: medium             # edits .github/workflows/ci.yml, an `ask` guardrail path (decision 0002)
 autonomy: L2             # L0 observe | L1 recommend | L2 approve-to-execute | L3 guardrailed auto
 type: docs               # feature | bugfix | docs | skill | metrics | research
@@ -106,11 +106,11 @@ Nothing else. Do **not** edit `session-log/tasks.csv` (the orchestrator writes t
 - Command: `uv run python scripts/check.py`.
 
 ## Log (filled in by the builder and verifier)
-- Start / end:
-- Guardrail edit (prompt shown and accepted, or applied by the orchestrator):
-- Checks run (command and real output, including the `diff limit:` line):
+- Start / end: 2026-10-17 13:32 to ~13:38 CEST (stacked on origin/task/T-008-diff-limit-check)
+- Guardrail edit (prompt shown and accepted, or applied by the orchestrator): ci.yml edited with the Edit tool; accepted, no denial.
+- Checks run (command and real output, including the `diff limit:` line): validate_agent_layer: `agent layer: OK`. check.py: 352 passed, 3 xfailed; `diff limit: 452/80 lines` FAILED as expected on the stacked branch (it counts T-008's 407 plus T-009 vs main merge-base); resolves after #22 merges.
 - CI `diff-limit` job result on the PR:
-- Diff size (insertions + deletions vs merge-base, task file excluded):
+- Diff size (insertions + deletions vs merge-base, task file excluded): vs T-008 branch, 23 insertions + 5 deletions outside tasks/, plus 1+1 in tasks/_template.md = 30 (limit 80).
 - Verifier verdict and findings:
 - Human review (minutes, notes):
 
