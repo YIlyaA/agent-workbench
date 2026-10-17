@@ -130,20 +130,48 @@ def test_author_filter_name(fx: Path, monkeypatch: pytest.MonkeyPatch, capsys: p
     res = run(fx, monkeypatch, capsys, "--author", "other")
     assert res["total_commits"] == 1
     assert [m["month"] for m in res["months"]] == ["2026-02"]
-    assert res["months"][0]["merges"] == 1  # pins current behavior: merges are not author-filtered
+    assert res["months"][0]["merges"] == 0  # T-007: merges follow --author
 
 
-@pytest.mark.xfail(strict=True, raises=AssertionError, reason="git_metrics bug: --author ignores email")
-def test_author_filter_email(fx: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
-    assert run(fx, monkeypatch, capsys, "--author", "dev@example.com")["total_commits"] == 4
+@pytest.mark.parametrize("needle", ["dev@example.com", "DEV@EXAMPLE.COM"], ids=["lower", "upper"])
+def test_author_filter_email(
+    fx: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], needle: str
+) -> None:
+    res = run(fx, monkeypatch, capsys, "--author", needle)
+    assert res["total_commits"] == 4
+    assert [(m["month"], m["merges"]) for m in res["months"]] == [("2026-01", 0)]
 
 
-@pytest.mark.xfail(strict=True, raises=AssertionError, reason="git_metrics bug: merges not from --all")
+def test_author_filter_domain(fx: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    res = run(fx, monkeypatch, capsys, "--author", "example.com")
+    assert res["total_commits"] == 5 and res["months"][1]["merges"] == 1
+
+
+@pytest.mark.parametrize("needle", ["dev <dev", "nobody"], ids=["joined", "nobody"])
+def test_author_no_match(
+    fx: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], needle: str
+) -> None:
+    res = run(fx, monkeypatch, capsys, "--author", needle)
+    assert (res["total_commits"], res["months"]) == (0, [])
+
+
 def test_merge_not_on_head(fx: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     git(fx, "checkout", "-q", "side")
-    git(fx, "merge", "--no-ff", "feature", "-m", "Merge to side", date="2026-02-10T12:00:00+00:00")
+    git(fx, "merge", "--no-ff", "feature", "-m", "Merge to side", date="2026-02-28T23:30:00-05:00", who=OTHER)
     git(fx, "checkout", "-q", "main")
-    assert run(fx, monkeypatch, capsys)["months"][1]["merges"] == 2
+    months = run(fx, monkeypatch, capsys)["months"]
+    assert [(m["month"], m["merges"]) for m in months] == [("2026-01", 0), ("2026-02", 2)]
+    assert run(fx, monkeypatch, capsys, "--author", "other dev")["months"][0]["merges"] == 1
+
+
+def test_stash_ignored(fx: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    head = git(fx, "rev-parse", "HEAD")
+    (fx / "app.py").write_text("changed\n", encoding="utf-8")
+    (fx / "scratch.py").write_text("x\n", encoding="utf-8")
+    git(fx, "stash", "push", "-u", "-q")
+    res = run(fx, monkeypatch, capsys)
+    assert (res["total_commits"], res["months"]) == (5, MONTHS)
+    assert len(git(fx, "stash", "list").splitlines()) == 1 and git(fx, "rev-parse", "HEAD") == head
 
 
 def test_out_json_and_stdout(fx: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
@@ -160,11 +188,18 @@ def empty(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     return isolate(tmp_path, monkeypatch, "empty")
 
 
-@pytest.mark.xfail(
-    strict=True, raises=subprocess.CalledProcessError, reason="git_metrics bug: empty repo makes git log exit 128"
-)
 def test_empty_repo(empty: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
-    assert run(empty, monkeypatch, capsys)["total_commits"] == 0
+    out = empty.parent / "m.json"
+    monkeypatch.setattr(sys, "argv", ["git_metrics.py", str(empty), "--out", str(out)])
+    git_metrics.main()
+    assert len(capsys.readouterr().out.strip().splitlines()) == 1
+    res = json.loads(out.read_text(encoding="utf-8"))
+    assert (res["total_commits"], res["months"]) == (0, []) and len(res) == 4
+
+
+def test_unborn_head(fx: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    git(fx, "checkout", "-q", "--orphan", "fresh")
+    assert run(fx, monkeypatch, capsys)["months"] == MONTHS
 
 
 def snapshot(root: Path) -> dict[str, bytes]:

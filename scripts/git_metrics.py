@@ -28,6 +28,11 @@ TEST = re.compile(
 )
 FIX = re.compile(r"^(fix|hotfix|revert|bugfix)(\(|:|!|\s)", re.I)
 FEAT = re.compile(r"^feat(\(|:|!|\s)", re.I)
+ALL_REFS = ("--exclude=refs/stash", "--all")  # --exclude must come first; a stash is not a commit
+
+
+def author_matches(needle, name, email):
+    return needle in name.lower() or needle in email.lower()
 
 
 def run(repo, *args):
@@ -42,14 +47,16 @@ def main():
     ap.add_argument("--author", default=None, help="substring of author name/email to include")
     ap.add_argument("--out", default=None)
     a = ap.parse_args()
-    fmt = "\x1e%H\x1f%ad\x1f%an\x1f%s\x1f%b\x1f"
-    cmd = ["log", "--no-merges", "--date=short", f"--pretty=format:{fmt}", "--numstat", "--all"]
+    fmt = "\x1e%H\x1f%ad\x1f%an\x1f%ae\x1f%s\x1f%b\x1f"
+    cmd = ["log", "--no-merges", "--date=short", f"--pretty=format:{fmt}", "--numstat", *ALL_REFS]
     raw = run(a.repo, *cmd)
-    merges = run(a.repo, "log", "--merges", "--date=short", "--pretty=format:%ad").split()
+    needle = (a.author or "").lower()
+    mlog = run(a.repo, "log", *ALL_REFS, "--merges", "--date=short", "--pretty=format:%ad%x1f%an%x1f%ae")
+    merges = [m[0] for m in (x.split("\x1f") for x in mlog.splitlines()) if author_matches(needle, m[1], m[2])]
     commits = []
     for block in raw.split("\x1e")[1:]:
-        h, d, an, subj, body, rest = block.split("\x1f", 5)
-        if a.author and a.author.lower() not in an.lower():
+        h, d, an, ae, subj, body, rest = block.split("\x1f", 6)
+        if not author_matches(needle, an, ae):
             continue
         code = test = files = 0
         for line in rest.strip().splitlines():

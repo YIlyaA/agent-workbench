@@ -1,6 +1,6 @@
 ---
 id: T-007
-status: approved          # draft | approved | in-progress | ready-for-review | done | rejected
+status: ready-for-review          # draft | approved | in-progress | ready-for-review | done | rejected
 risk: medium             # changes the read-only script behind headline number 1 (METRICS.md); T-010 re-checks the baseline
 autonomy: L2             # L0 observe | L1 recommend | L2 approve-to-execute | L3 guardrailed auto
 type: bugfix             # feature | bugfix | docs | skill | metrics | research
@@ -80,10 +80,19 @@ Nothing else. `scripts/git_metrics.py` is on the AGENTS.md "Do not touch" list (
 - T-008 runs in parallel and imports helpers from `tests/test_git_metrics.py`. Do not rename or move them.
 
 ## Log (filled in by the builder and verifier)
-- Start / end:
+- Start / end: 13:08 / see commit time
 - Failing tests before the fix (one line each):
+  - test_author_filter_name: assert 1 == 0
+  - test_author_filter_email[lower] / [upper]: assert 0 == 4
+  - test_author_filter_domain: assert (0 == 5)
+  - test_merge_not_on_head: AssertionError (merge on side not counted)
+  - test_stash_ignored: AssertionError (stash commits counted)
+  - test_empty_repo, test_unborn_head: CalledProcessError (git log exit 128)
+  - test_author_no_match: passes on main (guards against a joined-string implementation)
 - Checks run (command and real output):
-- Diff size (insertions + deletions vs merge-base, task file excluded):
+  `uv run python scripts/check.py`: ruff format OK, mypy OK, pytest 319 passed, agent layer OK, ALL CHECKS PASSED.
+  Empty-repo guard (spec 4) not needed: `git log --exclude=refs/stash --all` exits 0 locally; CI untested.
+- Diff size (insertions + deletions vs merge-base, task file excluded): 76 (59 + 17)
 - Verifier verdict and findings:
 - Human review (minutes, notes):
 
