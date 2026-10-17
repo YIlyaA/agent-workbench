@@ -1,6 +1,6 @@
 ---
 id: T-010
-status: approved          # draft | approved | in-progress | ready-for-review | done | rejected
+status: ready-for-review       # draft | approved | in-progress | ready-for-review | done | rejected
 risk: low                # one docs subsection; the run is read-only on another repo and done by the orchestrator
 autonomy: L1             # L0 observe | L1 recommend | L2 approve-to-execute | L3 guardrailed auto
 type: metrics            # feature | bugfix | docs | skill | metrics | research
@@ -86,18 +86,19 @@ No code. The checks are the run steps above, the verifier's privacy grep, and `u
 
 ## Log (filled in by the orchestrator, builder and verifier)
 - Run results (orchestrator; aggregates only):
-  - Date and time of run:
-  - Before / after (HEAD short sha omitted; "identical: yes/no", status count, ref count):
-  - `refs/stash` present, stash count:
-  - Arguments (no `--author` / a name substring):
-  - Closed months reproduced by old(now) (yes / no + gap):
-  - Published cells changed by the fix (count; month, column, old, new):
-  - Merges totals before 2026-08 / from 2026-08, old and new:
-  - Ratio (unchanged / old and new):
-  - Repeat runs identical (yes/no):
+  - Date and time of run: 2026-10-17
+  - Before / after: identical: yes (HEAD, status --porcelain count 0, for-each-ref count 168)
+  - `refs/stash` present, stash count: present, stash list count 0
+  - Arguments: no `--author`. Old = main's script before T-007; new = T-007 branch version 69594a1 (PR #18 not yet merged)
+  - Closed months reproduced by old(now): 2025-06..2026-07 yes except 2026-05 (published 10 commits, today 9). 2026-08+ no: commits published vs today 2026-08 70 vs 115, 2026-09 31 vs 4, 2026-10 (to the 10th) 44 vs none; total 472 vs 445; 19 published cells differ. Human decision 2026-10-17: record "not reproducible", recompute nothing.
+  - Published cells changed by the fix: 0 for 2025-06..2026-07; 2026-08+ not assessable. Only 2026-08 moves: commits 115->113, commits/day 10.45->10.27, code lines 59762->58895, lines/day 5433->5354, test share 0.383->0.380, fix share 0.374->0.381 (2 removed = stash commits)
+  - Attempt 2 (wording): pre-agent total published 327 vs today 326 (one commit, 2026-05); 2026-03 1 cell differs (commits/day rounding, 5/4 = 1.25 shown 1.3 vs 1.2); 19 differing cells = 2026-03 1, 2026-05 5 (commits, commits/day, code lines, lines/day, fix share), 2026-08 6, 2026-09 7. Cause not established. Fix effect on published 2026-08+ cells not assessable.
+  - Merges totals: before 2026-08 old 38 / new 38; 2026-08..09 old 1 / new 1
+  - Ratio: unverified (not recomputed)
+  - Repeat runs identical: yes (except `generated`)
 - Start / end (record):
-- Checks run (command and real output):
-- Diff size (insertions + deletions vs merge-base, task file excluded):
+- Checks run (command and real output): `uv run python scripts/check.py` -> ALL CHECKS PASSED (310 passed, 3 xfailed; agent layer OK)
+- Diff size (insertions + deletions vs merge-base, task file excluded): 18 insertions, 0 deletions (docs/baseline.md)
 - Verifier verdict and findings:
 - Human review (minutes, notes):
 

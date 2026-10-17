@@ -31,6 +31,24 @@ Source: `scripts/git_metrics.py` run read-only on my main backend project (a Dja
 | Code lines per active day | about 1,500 | about 4,000 |
 | Test share of changed lines | about 1% | about 29% |
 
+### Re-check after the git_metrics fixes (2026-10-17)
+
+**Not reproducible for 2026-08 onward.** The old script, run without `--author` on the author's main backend project, reproduces the published table for the pre-agent period except one commit in 2026-05 (327 published vs 326 today) and one rounding difference in 2026-03. It does not reproduce from 2026-08 onward. The cause is not established.
+
+| Month | Commits published | Commits today |
+|---|---:|---:|
+| 2026-08 | 70 | 115 |
+| 2026-09 | 31 | 4 |
+| 2026-10 (to the 10th) | 44 | none |
+| Total | 472 | 445 |
+
+- 19 published cells differ in total: 2026-03 1 (rounding), 2026-05 5, 2026-08 6, 2026-09 7.
+- Effect of the fix itself (new script minus old, on today's history): only 2026-08 changes. Commits 115 to 113 (the 2 removed are stash commits), commits per day 10.45 to 10.27, code lines 59,762 to 58,895, lines per day 5,433 to 5,354, test share 0.383 to 0.380, fix share 0.374 to 0.381. Merges are unchanged: before 2026-08, 38 and 38; 2026-08 to 2026-09, 1 and 1. For 2025-06 to 2026-07 the fix changes 0 published cells. Its effect on the published 2026-08 onward cells cannot be assessed; the measured effect is on today's history.
+- Months are by author date in the author's own offset (`%ad`) in both versions.
+- The new script is the T-007 branch version; that PR was not merged at run time. The run was read-only: HEAD, status and ref counts were identical before and after. Stash present: yes (`refs/stash` exists, list count 0). Each version was run twice with identical output (except the `generated` timestamp).
+
+The 2.4x to 2.7x per-active-day ratio is **unverified** until the "with agents" period is re-measured. Nothing was recomputed. The original tables stand as published; the human decides next steps.
+
 ## How to read this
 
 - Per active day, output is **about 2.4x to 2.7x higher** in the second period. That is a real, measured improvement. It is **not** 10x.
