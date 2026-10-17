@@ -1,6 +1,6 @@
 ---
 id: T-006
-status: approved # draft | approved | in-progress | ready-for-review | done | rejected
+status: ready-for-review # draft | approved | in-progress | ready-for-review | done | rejected
 risk: low                # read-only on ~/.claude/projects transcripts; prints counts and times only
 autonomy: L2             # L0 observe | L1 recommend | L2 approve-to-execute | L3 guardrailed auto
 type: metrics            # feature | bugfix | docs | skill | metrics | research
@@ -106,7 +106,7 @@ Nothing else. Do **not** edit `session-log/tasks.csv` (the orchestrator writes t
 - **Size basis (250 lines):** about 80 lines of code, about 18 tests at about 8 lines each with a shared fixture helper.
 
 ## Log (filled in by the builder and verifier)
-- Start / end:
-- Checks run (command and real output):
+- Start / end: 2026-10-17 10:07 - 10:10 CEST (builder). Diff is 284 changed lines vs limit 250; about 187 are tests.
+- Checks run (command and real output): `uv run python scripts/check.py` -> ruff check OK, ruff format OK, mypy OK, 264 passed, agent layer OK, ALL CHECKS PASSED. Real run: `max concurrent subagents: 5 (2026-10-17 10:07-10:08)`, `max concurrent builders: 3 (2026-10-17 10:06-10:07)`
 - Verifier verdict and findings:
 - Human review (minutes, notes):
